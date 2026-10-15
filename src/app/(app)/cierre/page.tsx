@@ -9,6 +9,7 @@ import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, propertyLabel, Stepper } from "@/lib/view";
 import { addExpenseAction, approveAdjustmentAction, closePeriodAction, confirmExpenseAction, discardExpenseAction, loadIndexAction, setLagAction } from "../../actions";
 import { ActionForm } from "../../ui";
+import { QuickAdd } from "../quick-add";
 
 export default async function Cierre({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -28,7 +29,7 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
     <>
       <div className="head">
         <div><h1>Cierre del mes</h1><p>Un paso a la vez. Tocá un paso para verlo.</p></div>
-        <PeriodPicker period={period} base={`/cierre?paso=${paso}`} />
+        <div className="head-actions"><PeriodPicker period={period} base={`/cierre?paso=${paso}`} /><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
       <Stepper steps={st.steps} period={period} current={paso} />
 

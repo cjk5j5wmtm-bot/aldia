@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuickAdd } from "../quick-add";
 import { adjustmentPeriods } from "@/lib/domain/adjustments";
 import { rentInForce } from "@/lib/domain/adjustments";
 import { addMonths, formatDate, formatPeriod } from "@/lib/domain/period";
@@ -34,6 +35,7 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
           <label className="field">Buscar por código, dirección, inquilino o propietario<input name="q" defaultValue={q} /></label>
           <button className="btn ghost" type="submit">Buscar</button>
         </form>
+        <QuickAdd store={store} period={period} hoy={hoy} />
       </div>
       <section className="section">
         <div className="body flush tbl">

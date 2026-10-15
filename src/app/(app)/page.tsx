@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QuickAdd } from "./quick-add";
 import { chargesFor } from "@/lib/domain/charges";
 import { closeStatus, type Task as CloseTask } from "@/lib/domain/close";
 import { formatMoney } from "@/lib/domain/money";
@@ -31,7 +32,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           <h1>Hola, {store.org.name}</h1>
           <p>{st.closed ? `${formatPeriod(period)} ya está cerrado.` : `Así va ${formatPeriod(period)}.`}</p>
         </div>
-        <PeriodPicker period={period} base="/" />
+        <div className="head-actions"><PeriodPicker period={period} base="/" /><QuickAdd store={store} period={period} hoy={today(store)} /></div>
       </div>
 
       {next && !st.closed ? (

@@ -179,8 +179,18 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 14px; }
 .bullets { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 @media (max-width: 900px) {
   .kpis { grid-template-columns: 1fr; }
+  .head-actions { width: 100%; }
+  .head-actions .pop { margin-left: auto; }
+  .pop[open] > .pop-body { position: fixed; left: 16px; right: 16px; top: 72px; width: auto; max-height: calc(100vh - 96px); }
   .stepper .name { display: none; }
   .stepper li.now .name { display: inline; }
   .stepper li.now { flex: 3 1 0; }
 }
+.pop-close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: var(--bg); color: var(--muted); font-size: 15px; cursor: pointer; z-index: 1; }
+.pop-body { position: relative; }
+.head-actions { display: flex; gap: 8px; align-items: center; }
+.btn.plus { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-size: 22px; line-height: 1; border-radius: 10px; cursor: pointer; }
+.pop-body > details { display: grid; gap: 8px; }
+.pop-body > details + details { border-top: 1px solid var(--line); padding-top: 10px; }
+.pop-body { max-height: calc(100vh - 160px); overflow-y: auto; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

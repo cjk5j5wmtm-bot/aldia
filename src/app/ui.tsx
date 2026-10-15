@@ -53,3 +53,10 @@ export function CopyText({ text }: { text: string }) {
     </div>
   );
 }
+
+/** Cierra el desplegable (details) que lo contiene. */
+export function CloseDetails() {
+  return (
+    <button type="button" className="pop-close" aria-label="Cerrar" onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}>✕</button>
+  );
+}

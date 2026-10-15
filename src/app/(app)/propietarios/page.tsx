@@ -5,6 +5,7 @@ import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, personName } from "@/lib/view";
 import { approveSettlementAction, informSettlementAction, transferAction } from "../../actions";
 import { ActionForm, CopyText } from "../../ui";
+import { QuickAdd } from "../quick-add";
 
 export default async function Propietarios({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -17,7 +18,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
     <>
       <div className="head">
         <div><h1>Propietarios</h1><p>Cuánto le toca a cada dueño en {formatPeriod(period)}.</p></div>
-        <PeriodPicker period={period} base="/propietarios" />
+        <div className="head-actions"><PeriodPicker period={period} base="/propietarios" /><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
       {list.length === 0 && <p className="muted">No hay propietarios con contratos activos en este período.</p>}
       {list.map(({ ownerId, currency }) => {
