@@ -8,7 +8,10 @@ import type { Store } from "../domain/types";
  * Persistencia de la v0.1: un archivo JSON local en .data/. Sirve para la demo y para probar en una sola máquina.
  * No es apto para producción (sin usuarios, sin concurrencia, sin respaldo). Ver README → "Próximos pasos".
  */
-const FILE = path.join(process.cwd(), ".data", "store.json");
+// En servidores sin disco propio (Netlify, AWS Lambda) solo /tmp es escribible, y se borra cada tanto.
+const serverless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DIR = process.env.ALDIA_DATA_DIR || (serverless ? "/tmp/aldia" : path.join(process.cwd(), ".data"));
+const FILE = path.join(DIR, "store.json");
 
 let cache: Store | null = null;
 
@@ -24,11 +27,16 @@ export function getStore(): Store {
 }
 
 export function save(store: Store) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  const tmp = `${FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
-  fs.renameSync(tmp, FILE);
   cache = store;
+  try {
+    fs.mkdirSync(path.dirname(FILE), { recursive: true });
+    const tmp = `${FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
+    fs.renameSync(tmp, FILE);
+  } catch (e) {
+    // Sin disco escribible la demo sigue funcionando en memoria, pero los cambios se pierden al reiniciar el servidor.
+    console.warn("Al Día: no se pudo guardar en disco, los datos quedan en memoria.", e);
+  }
 }
 
 export function resetDemo() {
