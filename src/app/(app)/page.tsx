@@ -29,6 +29,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
     <>
       <div className="head">
         <div>
+          <p className="eyebrow">{formatPeriod(period)} · Paso {Math.min(st.steps.filter((s) => s.complete).length + 1, st.steps.length)} de {st.steps.length}</p>
           <h1>Hola, {store.org.name}</h1>
           <p>{st.closed ? `${formatPeriod(period)} ya está cerrado.` : `Así va ${formatPeriod(period)}.`}</p>
         </div>
