@@ -1,4 +1,4 @@
-# Al Día · v0.1 (demo funcional)
+# Al Día · v0.2
 
 Cierre de mes guiado para inmobiliarias que administran alquileres en Argentina: aumentos por índice, cobranzas, punitorios (solo si el contrato los define), conciliación, liquidación a propietarios y cierre con historial.
 
@@ -16,7 +16,31 @@ npm run typecheck
 npm run build && npm start   # versión optimizada
 ```
 
-La app arranca en **modo demo** con 8 contratos ficticios, fecha fija 15/10/2026 y período octubre 2026. Para volver a los datos iniciales usá el botón "Reiniciar la demo" de la barra lateral o borrá la carpeta `.data/`.
+Entrá a `/registro` y creá una cuenta (nombre de la inmobiliaria, mail y contraseña). Cada cuenta nueva arranca con **datos de ejemplo**: 8 contratos ficticios, fecha fija 15/10/2026 y período octubre 2026. "Reiniciar datos de ejemplo" en la barra lateral los vuelve al inicio.
+
+## Cuentas y datos
+
+- Cada inmobiliaria tiene su cuenta con mail y contraseña. Solo ve sus propios datos.
+- Las contraseñas se guardan con `scrypt` y sal, nunca en texto plano. La sesión es una cookie firmada que dura 30 días.
+- En Netlify, los datos se guardan en **Netlify Blobs** (viene incluido y no hay que configurarlo). En la compu se guardan en `.data/`.
+- Todavía no hay recuperación de contraseña ni varios usuarios por inmobiliaria.
+
+## Suscripción con Mercado Pago
+
+El cobro se activa solo cuando configurás `MP_ACCESS_TOKEN`. Sin esa variable, la app no pide pago.
+
+1. En Mercado Pago (Tus integraciones), creá una aplicación y copiá el **Access Token de producción**. La cuenta tiene que ser de un adulto, porque es donde cae la plata.
+2. En Netlify, en Project configuration > Environment variables, agregá:
+   - `MP_ACCESS_TOKEN` = el token. **Es secreto: nunca lo pongas en el código ni lo compartas.**
+   - Opcional: `ALDIA_PRECIO_ARS`, si querés otro precio (por defecto, 29900).
+3. En Mercado Pago, en Webhooks, configurá la URL `https://TU-SITIO.netlify.app/api/mercadopago` con el evento de suscripciones (preapproval).
+4. Volvé a publicar el sitio (Deploys > Trigger deploy).
+
+Cómo funciona:
+- Al crear la cuenta, la persona va a `/suscripcion` y toca "Pagar con Mercado Pago". Ahí Al Día crea una suscripción mensual (preapproval) y la manda al checkout de Mercado Pago.
+- Cuando vuelve, o cuando Mercado Pago avisa por el webhook, se consulta el estado real y se habilita el acceso.
+- Si pausa o cancela la suscripción, el acceso se corta.
+- Mercado Pago pide que el mail de la cuenta de Al Día sea el mismo con el que se paga en Mercado Pago.
 
 ## Qué se puede hacer hoy
 
@@ -67,8 +91,9 @@ La app arranca en **modo demo** con 8 contratos ficticios, fecha fija 15/10/2026
 | Valores de índice IPC/ICL de la demo | **Ficticios**. No son datos oficiales |
 | WhatsApp | No conectado: solo arma el texto para copiar |
 | Mercado Pago, bancos, INDEC/BCRA, ARCA | No conectados |
-| Guardado | Archivo JSON local (`.data/store.json`). Sirve para la demo, no para producción |
-| Usuarios, permisos, varias inmobiliarias | No implementado todavía |
+| Guardado | Netlify Blobs en Netlify; archivos JSON locales en la compu |
+| Cuentas con mail y contraseña, una por inmobiliaria | Real |
+| Suscripción con Mercado Pago | Real cuando se configura `MP_ACCESS_TOKEN`. No la pude probar contra Mercado Pago desde el entorno de desarrollo |
 
 ## Para revisar con un profesional antes de usarlo con datos reales
 
@@ -79,7 +104,7 @@ La app arranca en **modo demo** con 8 contratos ficticios, fecha fija 15/10/2026
 
 ## Próximos pasos (en orden)
 
-1. Base de datos real (Postgres), login, roles y separación por inmobiliaria.
+1. Recuperar contraseña, varios usuarios por inmobiliaria y una base de datos relacional cuando haya muchos clientes.
 2. Alta y edición de contratos, e importación desde planilla (CSV/Excel).
 3. Carga de índices desde fuentes oficiales, con revisión humana antes de usarlos.
 4. Envío de WhatsApp con plantilla y autorización explícita.

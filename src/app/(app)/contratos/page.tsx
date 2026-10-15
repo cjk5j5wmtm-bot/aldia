@@ -3,15 +3,16 @@ import { adjustmentPeriods } from "@/lib/domain/adjustments";
 import { rentInForce } from "@/lib/domain/adjustments";
 import { addMonths, formatDate, formatPeriod } from "@/lib/domain/period";
 import { INDEX_LABEL } from "@/lib/domain/types";
-import { getStore, periodFrom } from "@/lib/server/store";
+import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, personName, propertyLabel } from "@/lib/view";
 
 const PAGE = 25;
 
 export default async function Contratos({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
-  const store = getStore();
-  const period = periodFrom(sp);
+  const { store } = await requireApp();
+  const period = periodFrom(store, sp);
+  const hoy = today(store);
   const q = typeof sp.q === "string" ? sp.q.trim().toLowerCase() : "";
   const page = Math.max(1, Number(sp.pagina) || 1);
   const rows = store.contracts

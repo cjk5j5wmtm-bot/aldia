@@ -8,7 +8,8 @@ import { allocate, confirmPayment, recordPayment, reverseAllocation, voidPayment
 import { approveSettlement, markSettlementInformed, registerExternalTransfer } from "@/lib/domain/settlements";
 import { audit } from "@/lib/domain/store-ops";
 import type { Expense, IndexName, PaymentMethod } from "@/lib/domain/types";
-import { ACTOR, getStore, resetDemo, save, today } from "@/lib/server/store";
+import type { Store } from "@/lib/domain/types";
+import { sampleStore, saveStore, session, today } from "@/lib/server/store";
 
 export interface ActionResult {
   ok: boolean;
@@ -27,54 +28,54 @@ function parseAmount(raw: string): number {
   throw new Error(`No entiendo el importe "${raw}". Usá el formato 1.234,56 (punto para miles, coma para centavos).`);
 }
 
-async function run(fn: () => string): Promise<ActionResult> {
-  const store = getStore();
-  const backup = JSON.stringify(store);
+/** Ejecuta un cambio sobre los datos de la cuenta con sesión iniciada. Si falla, no se guarda nada. */
+async function run(fn: (s: Store, ACTOR: string, hoy: string) => string): Promise<ActionResult> {
+  const ctx = await session();
+  if (!ctx) return { ok: false, message: "Tu sesión venció. Volvé a ingresar." };
+  const store = structuredClone(ctx.store);
   try {
-    const message = fn();
-    save(store);
+    const message = fn(store, ctx.actor, today(store));
+    await saveStore(store);
     revalidatePath("/", "layout");
     return { ok: true, message };
   } catch (e) {
-    // Si algo falla a mitad de camino, no queda nada a medio guardar.
-    Object.assign(store, JSON.parse(backup));
     return { ok: false, message: e instanceof Error ? e.message : "No se pudo completar la acción." };
   }
 }
 
 export async function approveAdjustmentAction(_: ActionResult | null, f: FormData) {
-  return run(() => {
-    approveAdjustment(getStore(), str(f, "contractId"), str(f, "period"), ACTOR);
+  return run((s, ACTOR, hoy) => {
+    approveAdjustment(s, str(f, "contractId"), str(f, "period"), ACTOR);
     return "Aumento aprobado. El nuevo importe rige desde este período.";
   });
 }
 
 export async function loadIndexAction(_: ActionResult | null, f: FormData) {
-  return run(() => {
+  return run((s, ACTOR, hoy) => {
     const value = Number(str(f, "value").replace(",", "."));
-    loadIndexValue(getStore(), str(f, "index") as IndexName, str(f, "period"), value, str(f, "source"), ACTOR);
+    loadIndexValue(s, str(f, "index") as IndexName, str(f, "period"), value, str(f, "source"), ACTOR);
     return "Valor del índice guardado con su fuente.";
   });
 }
 
 export async function setLagAction(_: ActionResult | null, f: FormData) {
-  return run(() => {
-    const c = getStore().contracts.find((x) => x.id === str(f, "contractId"));
+  return run((s, ACTOR, hoy) => {
+    const c = s.contracts.find((x) => x.id === str(f, "contractId"));
     if (!c?.adjustment) throw new Error("El contrato no tiene cláusula de actualización.");
     const lag = Number(str(f, "lag"));
     if (!Number.isInteger(lag) || lag < 0 || lag > 3) throw new Error("El rezago tiene que ser 0, 1, 2 o 3 meses.");
     if (!str(f, "basis")) throw new Error("Escribí en qué parte del contrato te basaste.");
     c.adjustment.referenceLagMonths = lag;
     c.adjustment.clauseText = `${c.adjustment.clauseText ?? ""} [Rezago definido: ${lag} mes(es). Base: ${str(f, "basis")}]`.trim();
-    audit(getStore(), ACTOR, "definió el rezago del índice", "contrato", c.id, `${lag} mes(es)`, str(f, "basis"));
+    audit(s, ACTOR, "definió el rezago del índice", "contrato", c.id, `${lag} mes(es)`, str(f, "basis"));
     return "Regla guardada. El aumento ya se puede calcular si están los valores del índice.";
   });
 }
 
 export async function recordPaymentAction(_: ActionResult | null, f: FormData) {
-  return run(() => {
+  return run((s, ACTOR, hoy) => {
     const currency = str(f, "currency") as Currency;
-    const { payment, duplicate } = recordPayment(getStore(), {
+    const { payment, duplicate } = recordPayment(s, {
       amount: money(parseAmount(str(f, "amount")), currency),
       method: str(f, "method") as PaymentMethod,
       effectiveDate: str(f, "date"),
@@ -87,9 +88,8 @@ export async function recordPaymentAction(_: ActionResult | null, f: FormData) {
     const contractId = str(f, "contractId");
     if (contractId) {
       const period = str(f, "period");
-      const s = getStore();
       const c = s.contracts.find((x) => x.id === contractId);
-      allocate(s, payment.id, contractId, period, Math.min(payment.amount.cents, parseAmount(str(f, "amount"))), ACTOR, today());
+      allocate(s, payment.id, contractId, period, Math.min(payment.amount.cents, parseAmount(str(f, "amount"))), ACTOR, hoy);
       return `Pago registrado y asignado a ${c?.code}.`;
     }
     return "Pago registrado. Quedó sin asignar: asignalo a un alquiler en la lista de pagos.";
@@ -97,29 +97,28 @@ export async function recordPaymentAction(_: ActionResult | null, f: FormData) {
 }
 
 export async function confirmPaymentAction(_: ActionResult | null, f: FormData) {
-  return run(() => (confirmPayment(getStore(), str(f, "paymentId"), ACTOR), "Pago confirmado: ahora cuenta como cobrado."));
+  return run((s, ACTOR, hoy) => (confirmPayment(s, str(f, "paymentId"), ACTOR), "Pago confirmado: ahora cuenta como cobrado."));
 }
 
 export async function allocateAction(_: ActionResult | null, f: FormData) {
-  return run(() => {
+  return run((s, ACTOR, hoy) => {
     const [contractId, period] = str(f, "chargeKey").split(":");
     if (!contractId) throw new Error("Elegí a qué alquiler corresponde.");
-    allocate(getStore(), str(f, "paymentId"), contractId, period, parseAmount(str(f, "amount")), ACTOR, today());
+    allocate(s, str(f, "paymentId"), contractId, period, parseAmount(str(f, "amount")), ACTOR, hoy);
     return "Pago asignado.";
   });
 }
 
 export async function reverseAllocationAction(_: ActionResult | null, f: FormData) {
-  return run(() => (reverseAllocation(getStore(), str(f, "paymentId"), str(f, "allocationId"), ACTOR, str(f, "reason")), "Asignación revertida. Queda en el historial."));
+  return run((s, ACTOR, hoy) => (reverseAllocation(s, str(f, "paymentId"), str(f, "allocationId"), ACTOR, str(f, "reason")), "Asignación revertida. Queda en el historial."));
 }
 
 export async function voidPaymentAction(_: ActionResult | null, f: FormData) {
-  return run(() => (voidPayment(getStore(), str(f, "paymentId"), ACTOR, str(f, "reason")), "Pago anulado. Queda en el historial."));
+  return run((s, ACTOR, hoy) => (voidPayment(s, str(f, "paymentId"), ACTOR, str(f, "reason")), "Pago anulado. Queda en el historial."));
 }
 
 export async function addExpenseAction(_: ActionResult | null, f: FormData) {
-  return run(() => {
-    const s = getStore();
+  return run((s, ACTOR, hoy) => {
     const c = s.contracts.find((x) => x.id === str(f, "contractId"));
     if (!c) throw new Error("Elegí el contrato.");
     addExpense(s, {
@@ -132,30 +131,32 @@ export async function addExpenseAction(_: ActionResult | null, f: FormData) {
 }
 
 export async function confirmExpenseAction(_: ActionResult | null, f: FormData) {
-  return run(() => (confirmExpense(getStore(), str(f, "expenseId"), ACTOR), "Gasto confirmado."));
+  return run((s, ACTOR, hoy) => (confirmExpense(s, str(f, "expenseId"), ACTOR), "Gasto confirmado."));
 }
 
 export async function discardExpenseAction(_: ActionResult | null, f: FormData) {
-  return run(() => (discardExpense(getStore(), str(f, "expenseId"), ACTOR, str(f, "reason")), "Gasto descartado."));
+  return run((s, ACTOR, hoy) => (discardExpense(s, str(f, "expenseId"), ACTOR, str(f, "reason")), "Gasto descartado."));
 }
 
 export async function approveSettlementAction(_: ActionResult | null, f: FormData) {
-  return run(() => (approveSettlement(getStore(), str(f, "ownerId"), str(f, "period"), str(f, "currency") as Currency, ACTOR, today()), "Liquidación aprobada. Quedó guardada tal como está ahora."));
+  return run((s, ACTOR, hoy) => (approveSettlement(s, str(f, "ownerId"), str(f, "period"), str(f, "currency") as Currency, ACTOR, hoy), "Liquidación aprobada. Quedó guardada tal como está ahora."));
 }
 
 export async function informSettlementAction(_: ActionResult | null, f: FormData) {
-  return run(() => (markSettlementInformed(getStore(), str(f, "id"), ACTOR), "Marcada como informada al propietario."));
+  return run((s, ACTOR, hoy) => (markSettlementInformed(s, str(f, "id"), ACTOR), "Marcada como informada al propietario."));
 }
 
 export async function transferAction(_: ActionResult | null, f: FormData) {
-  return run(() => (registerExternalTransfer(getStore(), str(f, "id"), str(f, "date"), str(f, "reference"), ACTOR), "Transferencia registrada. Al Día no la ejecuta: solo deja constancia."));
+  return run((s, ACTOR, hoy) => (registerExternalTransfer(s, str(f, "id"), str(f, "date"), str(f, "reference"), ACTOR), "Transferencia registrada. Al Día no la ejecuta: solo deja constancia."));
 }
 
 export async function closePeriodAction(_: ActionResult | null, f: FormData) {
-  return run(() => (closePeriod(getStore(), str(f, "period"), ACTOR, today(), str(f, "reason") || undefined), "Mes cerrado. Queda guardado quién y cuándo lo cerró."));
+  return run((s, ACTOR, hoy) => (closePeriod(s, str(f, "period"), ACTOR, hoy, str(f, "reason") || undefined), "Mes cerrado. Queda guardado quién y cuándo lo cerró."));
 }
 
 export async function resetDemoAction() {
-  resetDemo();
+  const ctx = await session();
+  if (!ctx) return;
+  await saveStore(sampleStore(ctx.store.org.id, ctx.store.org.name, ctx.store));
   revalidatePath("/", "layout");
 }

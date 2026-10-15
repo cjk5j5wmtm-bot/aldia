@@ -12,8 +12,8 @@ const ARS = (pesos: number) => money(Math.round(pesos * 100), "ARS");
 const USD = (d: number) => money(Math.round(d * 100), "USD");
 const at = "2026-10-01T12:00:00.000Z";
 
-export function demoStore(): Store {
-  const org = { id: "org_demo", name: "Inmobiliaria Demo", isDemo: true };
+export function demoStore(orgId = "org_demo", orgName = "Inmobiliaria Demo"): Store {
+  const org = { id: orgId, name: orgName, isDemo: true };
   const p = (id: string, name: string, phone?: string, email?: string) => ({ id, orgId: org.id, name, phone, email });
   return {
     org,

@@ -1,27 +1,28 @@
 import { ownerSummaryDraft } from "@/lib/domain/messages";
 import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { computeSettlement, findSettlement, ownersWithContracts, settlementLabel } from "@/lib/domain/settlements";
-import { getStore, periodFrom, today } from "@/lib/server/store";
+import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, personName } from "@/lib/view";
-import { approveSettlementAction, informSettlementAction, transferAction } from "../actions";
-import { ActionForm, CopyText } from "../ui";
+import { approveSettlementAction, informSettlementAction, transferAction } from "../../actions";
+import { ActionForm, CopyText } from "../../ui";
 
 export default async function Propietarios({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
-  const store = getStore();
-  const period = periodFrom(sp);
+  const { store } = await requireApp();
+  const period = periodFrom(store, sp);
+  const hoy = today(store);
   const list = ownersWithContracts(store, period);
 
   return (
     <>
       <div className="head">
-        <div><h1>Propietarios</h1><p>Liquidaciones de {formatPeriod(period)}. Una por propietario y por moneda.</p></div>
+        <div><h1>Propietarios</h1><p>Cuánto le toca a cada dueño en {formatPeriod(period)}.</p></div>
         <PeriodPicker period={period} base="/propietarios" />
       </div>
       {list.length === 0 && <p className="muted">No hay propietarios con contratos activos en este período.</p>}
       {list.map(({ ownerId, currency }) => {
         const rec = findSettlement(store, ownerId, period, currency);
-        const s = rec ? rec.snapshot : computeSettlement(store, ownerId, period, currency, today());
+        const s = rec ? rec.snapshot : computeSettlement(store, ownerId, period, currency, hoy);
         const draft = ownerSummaryDraft(store, s, !!rec);
         return (
           <section className="section" id={ownerId} key={`${ownerId}:${currency}`}>
@@ -29,6 +30,12 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
               <h2>{personName(store, ownerId)} · {currency}</h2>
               <span className={`chip ${rec ? "ok" : s.blockers.length ? "warn" : "info"}`}>{settlementLabel(rec)}{!rec && s.blockers.length ? ", con pendientes" : ""}</span>
             </header>
+            <div className="body">
+              <div className="big-line">Le corresponden <b><M m={s.net} /></b></div>
+              <span className="small muted">Cobrado <M m={s.collected} />, menos comisión <M m={s.commission} /> y gastos <M m={s.expenses} />.</span>
+            </div>
+            <details className="more">
+            <summary>Ver el detalle por contrato</summary>
             <div className="body flush tbl">
               <table>
                 <thead><tr><th>Contrato</th><th className="r">Cobrado</th><th className="r">Comisión</th><th className="r">Gastos</th><th className="r">Neto</th></tr></thead>
@@ -49,6 +56,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
                 </tbody>
               </table>
             </div>
+            </details>
             <div className="body">
               <p className="small muted" style={{ margin: 0 }}>Calculado solo con pagos verificados y gastos confirmados de {formatPeriod(period)}.{rec ? ` Aprobada por ${rec.approvedBy} el ${formatDate(rec.approvedAt.slice(0, 10))}: este detalle quedó guardado y no cambia.` : ""}</p>
               {!rec && s.blockers.map((b) => <div key={b} className="missing">{b}</div>)}
@@ -73,7 +81,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
                   <p className="small muted">Al Día no transfiere dinero. Esto solo deja constancia de una transferencia que hiciste desde tu banco.</p>
                   <ActionForm action={transferAction} submit="Registrar transferencia">
                     <input type="hidden" name="id" value={rec.id} />
-                    <label className="field">Fecha<input type="date" name="date" defaultValue={today()} required /></label>
+                    <label className="field">Fecha<input type="date" name="date" defaultValue={hoy} required /></label>
                     <label className="field">Número de operación<input name="reference" required /></label>
                   </ActionForm>
                 </details>

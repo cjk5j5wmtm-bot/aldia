@@ -3,6 +3,11 @@ import { CHARGE_LABEL, type Charge } from "./domain/charges";
 import { formatMoney, sum, type Currency, type Money } from "./domain/money";
 import { addMonths, formatPeriod, type Period } from "./domain/period";
 import type { Store } from "./domain/types";
+import type { Step } from "./domain/close";
+
+export const Logo = () => (
+  <svg width="26" height="26" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#2443d6" /><path d="M8 15.5l4.5 4.5L22 10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
 
 export const M = ({ m }: { m: Money }) => <span className="num">{formatMoney(m)}</span>;
 
@@ -42,4 +47,21 @@ export function totalsByCurrency(charges: Charge[]) {
       provisional: cs.some((c) => c.provisional),
     };
   });
+}
+
+/** Los 5 pasos del cierre en una fila compacta. El actual es el primero sin completar. */
+export function Stepper({ steps, period, current }: { steps: Step[]; period: Period; current?: string }) {
+  const active = current ?? steps.find((s) => !s.complete)?.key;
+  return (
+    <ol className="stepper" aria-label="Pasos del cierre">
+      {steps.map((s, i) => (
+        <li key={s.key} className={`${s.complete ? "done" : ""} ${s.key === active ? "now" : ""}`}>
+          <Link href={`/cierre?periodo=${period}&paso=${s.key}`} aria-current={s.key === active ? "step" : undefined}>
+            <span className="dot" aria-hidden="true">{s.complete ? "✓" : i + 1}</span>
+            <span className="name">{s.title}</span>
+          </Link>
+        </li>
+      ))}
+    </ol>
+  );
 }

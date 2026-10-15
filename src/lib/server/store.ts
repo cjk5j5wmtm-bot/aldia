@@ -1,56 +1,59 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
+import { cache } from "react";
+import { redirect } from "next/navigation";
 import { demoStore, DEMO_PERIOD, DEMO_TODAY } from "../demo/seed";
 import type { Store } from "../domain/types";
+import { currentUser, type User } from "./auth";
+import { billingEnabled } from "./billing";
+import { kvGet, kvSet } from "./kv";
 
 /**
- * Persistencia de la v0.1: un archivo JSON local en .data/. Sirve para la demo y para probar en una sola máquina.
- * No es apto para producción (sin usuarios, sin concurrencia, sin respaldo). Ver README → "Próximos pasos".
+ * Cada inmobiliaria tiene su propio Store, guardado aparte (ver kv.ts).
+ * Las pantallas y acciones solo acceden al Store de la cuenta con sesión iniciada.
  */
-// En servidores sin disco propio (Netlify, AWS Lambda) solo /tmp es escribible, y se borra cada tanto.
-const serverless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
-const DIR = process.env.ALDIA_DATA_DIR || (serverless ? "/tmp/aldia" : path.join(process.cwd(), ".data"));
-const FILE = path.join(DIR, "store.json");
+const orgKey = (orgId: string) => `inmobiliarias/${orgId}`;
 
-let cache: Store | null = null;
-
-export function getStore(): Store {
-  if (cache) return cache;
-  try {
-    cache = JSON.parse(fs.readFileSync(FILE, "utf8")) as Store;
-  } catch {
-    cache = demoStore();
-    save(cache);
-  }
-  return cache;
+export async function loadStore(orgId: string): Promise<Store | null> {
+  return kvGet<Store>(orgKey(orgId));
 }
 
-export function save(store: Store) {
-  cache = store;
-  try {
-    fs.mkdirSync(path.dirname(FILE), { recursive: true });
-    const tmp = `${FILE}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
-    fs.renameSync(tmp, FILE);
-  } catch (e) {
-    // Sin disco escribible la demo sigue funcionando en memoria, pero los cambios se pierden al reiniciar el servidor.
-    console.warn("Al Día: no se pudo guardar en disco, los datos quedan en memoria.", e);
-  }
+export async function saveStore(store: Store) {
+  await kvSet(orgKey(store.org.id), store);
 }
 
-export function resetDemo() {
-  const s = demoStore();
-  save(s);
+/** Datos de ejemplo para una cuenta nueva, o para reiniciarlos. Conserva el nombre y la suscripción. */
+export function sampleStore(orgId: string, name: string, keep?: Store) {
+  const s = demoStore(orgId, name);
+  if (keep?.org.subscription) s.org.subscription = keep.org.subscription;
   return s;
 }
 
-/** En modo demo la fecha de hoy es fija para que los datos ficticios sean coherentes. */
-export const today = () => (getStore().org.isDemo ? DEMO_TODAY : new Date().toISOString().slice(0, 10));
-export const defaultPeriod = () => (getStore().org.isDemo ? DEMO_PERIOD : today().slice(0, 7));
-export const ACTOR = "Usuario demo";
+export interface Ctx {
+  user: User;
+  store: Store;
+  actor: string;
+}
 
-export function periodFrom(sp: Record<string, string | string[] | undefined>) {
-  const p = typeof sp.periodo === "string" && /^\d{4}-\d{2}$/.test(sp.periodo) ? sp.periodo : defaultPeriod();
-  return p;
+/** Usuario y datos de la sesión actual, o null. Se calcula una vez por pedido. */
+export const session = cache(async (): Promise<Ctx | null> => {
+  const user = await currentUser();
+  if (!user) return null;
+  const store = (await loadStore(user.orgId)) ?? sampleStore(user.orgId, user.name);
+  return { user, store, actor: user.name };
+});
+
+/** Para las pantallas de la app: exige sesión y suscripción activa (si el cobro está configurado). */
+export async function requireApp(): Promise<Ctx> {
+  const ctx = await session();
+  if (!ctx) redirect("/ingresar");
+  if (billingEnabled() && ctx.store.org.subscription?.status !== "activa") redirect("/suscripcion");
+  return ctx;
+}
+
+/** Con datos de ejemplo la fecha de hoy es fija, para que los vencimientos de prueba tengan sentido. */
+export const today = (s: Store) => (s.org.isDemo ? DEMO_TODAY : new Date().toISOString().slice(0, 10));
+export const defaultPeriod = (s: Store) => (s.org.isDemo ? DEMO_PERIOD : today(s).slice(0, 7));
+
+export function periodFrom(s: Store, sp: Record<string, string | string[] | undefined>) {
+  return typeof sp.periodo === "string" && /^\d{4}-\d{2}$/.test(sp.periodo) ? sp.periodo : defaultPeriod(s);
 }

@@ -5,17 +5,18 @@ import { chargeFor } from "@/lib/domain/charges";
 import { describeRounding } from "@/lib/domain/money";
 import { addMonths, formatDate, formatPeriod } from "@/lib/domain/period";
 import { INDEX_LABEL } from "@/lib/domain/types";
-import { getStore, periodFrom, today } from "@/lib/server/store";
+import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { ChargeChip, M, personName, propertyLabel } from "@/lib/view";
 
 export default async function Contrato({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { id } = await params;
   const sp = await searchParams;
-  const store = getStore();
-  const period = periodFrom(sp);
+  const { store } = await requireApp();
+  const period = periodFrom(store, sp);
+  const hoy = today(store);
   const c = store.contracts.find((x) => x.id === id);
   if (!c) notFound();
-  const ch = chargeFor(store, c, period, today());
+  const ch = chargeFor(store, c, period, hoy);
   const adjPeriods = adjustmentPeriods(c, addMonths(period, 12));
   const history = store.audit.filter((e) => e.entityId === c.id).slice(-15).reverse();
 

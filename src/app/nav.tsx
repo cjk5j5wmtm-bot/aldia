@@ -6,9 +6,9 @@ import { usePathname, useSearchParams } from "next/navigation";
 const ITEMS = [
   { href: "/", label: "Inicio" },
   { href: "/cierre", label: "Cierre del mes" },
-  { href: "/contratos", label: "Contratos" },
   { href: "/cobranzas", label: "Cobranzas" },
   { href: "/propietarios", label: "Propietarios" },
+  { href: "/contratos", label: "Contratos" },
 ];
 
 export function Nav() {

@@ -5,16 +5,19 @@ import { closeStatus } from "@/lib/domain/close";
 import { describeRounding, formatMoney } from "@/lib/domain/money";
 import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { INDEX_LABEL } from "@/lib/domain/types";
-import { getStore, periodFrom, today } from "@/lib/server/store";
-import { M, PeriodPicker, propertyLabel } from "@/lib/view";
-import { addExpenseAction, approveAdjustmentAction, closePeriodAction, confirmExpenseAction, discardExpenseAction, loadIndexAction, setLagAction } from "../actions";
-import { ActionForm } from "../ui";
+import { periodFrom, requireApp, today } from "@/lib/server/store";
+import { M, PeriodPicker, propertyLabel, Stepper } from "@/lib/view";
+import { addExpenseAction, approveAdjustmentAction, closePeriodAction, confirmExpenseAction, discardExpenseAction, loadIndexAction, setLagAction } from "../../actions";
+import { ActionForm } from "../../ui";
 
 export default async function Cierre({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
-  const store = getStore();
-  const period = periodFrom(sp);
-  const st = closeStatus(store, period, today());
+  const { store } = await requireApp();
+  const period = periodFrom(store, sp);
+  const hoy = today(store);
+  const st = closeStatus(store, period, hoy);
+  const KEYS = ["preparar", "cobrar", "conciliar", "liquidar", "cerrar"];
+  const paso = typeof sp.paso === "string" && KEYS.includes(sp.paso) ? sp.paso : st.steps.find((x) => !x.complete)?.key ?? "cerrar";
   const close = store.closes.find((c) => c.period === period);
   const active = store.contracts.filter((c) => contractCoversPeriod(c, period));
   const due = active.filter((c) => adjustmentPeriods(c, period).includes(period));
@@ -24,12 +27,13 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
   return (
     <>
       <div className="head">
-        <div><h1>Cierre del mes</h1><p>Seguí los pasos en orden. Cada paso se completa cuando sus tareas están resueltas.</p></div>
-        <PeriodPicker period={period} base="/cierre" />
+        <div><h1>Cierre del mes</h1><p>Un paso a la vez. Tocá un paso para verlo.</p></div>
+        <PeriodPicker period={period} base={`/cierre?paso=${paso}`} />
       </div>
+      <Stepper steps={st.steps} period={period} current={paso} />
 
-      <section className="section" id="preparar">
-        <header><h2>1. Preparar el mes</h2><span className={`chip ${st.steps[0].complete ? "ok" : "warn"}`}>{st.steps[0].complete ? "Completo" : "Pendiente"}</span></header>
+      {paso === "preparar" && <section className="section" id="preparar">
+        <header><h2>Preparar el mes</h2><span className={`chip ${st.steps[0].complete ? "ok" : "warn"}`}>{st.steps[0].complete ? "Completo" : "Pendiente"}</span></header>
         <div className="body">
           <h3>Aumentos que tocan en {formatPeriod(period)}</h3>
           {due.length === 0 && <p className="muted">Ningún contrato tiene aumento este mes.</p>}
@@ -43,11 +47,14 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
                   <b><Link href={`/contratos/${c.id}?periodo=${period}`}>{c.code}</Link> · {propertyLabel(store, c.propertyId)}</b>
                   <span className={`chip ${done ? "ok" : a.status === "calculado" ? "info" : "warn"}`}>{done ? "Aprobado" : a.status === "calculado" ? "Calculado, falta aprobar" : "Pendiente de datos"}</span>
                 </div>
-                <div>Índice pactado: {INDEX_LABEL[c.adjustment!.index]}, cada {c.adjustment!.everyMonths} meses.</div>
-                {c.adjustment!.clauseText && <div className="muted">Cláusula: “{c.adjustment!.clauseText}”</div>}
-                <div>Alquiler anterior: <M m={a.previous} />{a.result && <> → nuevo: <b><M m={a.result} /></b></>}</div>
-                {exp && <div className="num">{exp}</div>}
-                {a.result && <div className="muted">Redondeo: {describeRounding(a.rounding)}</div>}
+                <div className="big-line">Hoy paga <M m={a.previous} />{a.result && <> · pasa a pagar <b><M m={a.result} /></b></>}</div>
+                <details>
+                  <summary className="small">Ver de dónde sale</summary>
+                  <div className="small">Índice pactado: {INDEX_LABEL[c.adjustment!.index]}, cada {c.adjustment!.everyMonths} meses.</div>
+                  {c.adjustment!.clauseText && <div className="small muted">Cláusula: “{c.adjustment!.clauseText}”</div>}
+                  {exp && <div className="small num">{exp}</div>}
+                  {a.result && <div className="small muted">Redondeo: {describeRounding(a.rounding)}</div>}
+                </details>
                 {a.approved && <div className="muted">Aprobado por {a.approved.approvedBy} el {formatDate(a.approved.approvedAt.slice(0, 10))}.</div>}
                 {a.missing.map((m) => <div key={m} className="missing">{m}</div>)}
                 {a.status === "calculado" && (
@@ -92,10 +99,13 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
                 {e.status === "pendiente" && (
                   <div className="row">
                     <ActionForm action={confirmExpenseAction} submit="Confirmar gasto"><input type="hidden" name="expenseId" value={e.id} /></ActionForm>
-                    <ActionForm action={discardExpenseAction} submit="Descartar" variant="ghost">
-                      <input type="hidden" name="expenseId" value={e.id} />
-                      <label className="field">Motivo<input name="reason" required /></label>
-                    </ActionForm>
+                    <details>
+                      <summary className="small">Descartar</summary>
+                      <ActionForm action={discardExpenseAction} submit="Descartar gasto" variant="ghost">
+                        <input type="hidden" name="expenseId" value={e.id} />
+                        <label className="field">Motivo<input name="reason" required /></label>
+                      </ActionForm>
+                    </details>
                   </div>
                 )}
               </div>
@@ -112,21 +122,21 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
               <label className="field">Descripción<input name="description" required /></label>
               <div className="row">
                 <label className="field">Importe (en la moneda del contrato)<input name="amount" inputMode="decimal" required placeholder="45.000,00" /></label>
-                <label className="field">Fecha<input type="date" name="date" required defaultValue={today()} /></label>
+                <label className="field">Fecha<input type="date" name="date" required defaultValue={hoy} /></label>
                 <label className="field">Lo asume<select name="bornBy"><option value="propietario">El propietario</option><option value="inquilino">El inquilino</option></select></label>
               </div>
               <label className="field">Proveedor (opcional)<input name="provider" /></label>
             </ActionForm>
           </details>
         </div>
-      </section>
+      </section>}
 
-      {(["cobrar", "conciliar", "liquidar"] as const).map((k, i) => {
+      {(["cobrar", "conciliar", "liquidar"] as const).filter((k) => k === paso).map((k) => {
         const step = st.steps.find((s) => s.key === k)!;
-        const href = k === "liquidar" ? `/propietarios?periodo=${period}` : `/cobranzas?periodo=${period}${k === "conciliar" ? "#pagos" : ""}`;
+        const href = k === "liquidar" ? `/propietarios?periodo=${period}` : `/cobranzas?periodo=${period}${k === "conciliar" ? "&ver=pagos" : ""}`;
         return (
           <section className="section" id={k} key={k}>
-            <header><h2>{i + 2}. {step.title}</h2><span className={`chip ${step.complete ? "ok" : "warn"}`}>{step.complete ? "Completo" : "Pendiente"}</span></header>
+            <header><h2>{step.title}</h2><span className={`chip ${step.complete ? "ok" : "warn"}`}>{step.complete ? "Completo" : "Pendiente"}</span></header>
             <div className="body">
               <p className="muted" style={{ margin: 0 }}>{step.summary}.</p>
               {stepTasks(k).slice(0, 5).map((t) => <div key={t.id} className="small">• {t.title}: <span className="muted">{t.detail}</span></div>)}
@@ -136,8 +146,8 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
         );
       })}
 
-      <section className="section" id="cerrar">
-        <header><h2>5. Revisar y cerrar</h2><span className={`chip ${close ? "ok" : "warn"}`}>{close ? "Cerrado" : "Abierto"}</span></header>
+      {paso === "cerrar" && <section className="section" id="cerrar">
+        <header><h2>Revisar y cerrar</h2><span className={`chip ${close ? "ok" : "warn"}`}>{close ? "Cerrado" : "Abierto"}</span></header>
         <div className="body">
           {close ? (
             <>
@@ -168,7 +178,7 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
             </ul>
           </details>
         </div>
-      </section>
+      </section>}
     </>
   );
 }

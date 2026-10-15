@@ -50,14 +50,14 @@ export function closeStatus(store: Store, period: Period, asOf: ISODate): CloseS
       id: `adj:${c.id}`, step: "preparar", severity: "bloquea",
       title: `Revisar el aumento de ${c.code}`,
       detail: a.status === "calculado" ? "Calculado, falta que lo apruebes." : a.missing[0] ?? "Faltan datos.",
-      href: `/contratos/${c.id}?periodo=${period}#aumento`,
+      href: `/cierre?periodo=${period}&paso=preparar#aum-${c.id}`,
     });
   }
   const exps = store.expenses.filter((e) => e.period === period);
   const expPending = exps.filter((e) => e.status === "pendiente");
   for (const e of expPending) {
     const c = store.contracts.find((x) => x.id === e.contractId);
-    tasks.push({ id: `exp:${e.id}`, step: "preparar", severity: "bloquea", title: `Revisar el gasto "${e.description}"`, detail: `${c?.code ?? ""}: confirmalo o descartalo antes de liquidar.`, href: `/cierre?periodo=${period}#gastos` });
+    tasks.push({ id: `exp:${e.id}`, step: "preparar", severity: "bloquea", title: `Revisar el gasto "${e.description}"`, detail: `${c?.code ?? ""}: confirmalo o descartalo antes de liquidar.`, href: `/cierre?periodo=${period}&paso=preparar#gastos` });
   }
 
   // B. Cobrar.
@@ -72,10 +72,10 @@ export function closeStatus(store: Store, period: Period, asOf: ISODate): CloseS
   const unassigned = store.payments.filter((p) => p.status === "confirmado" && allocated(p) < p.amount.cents);
   const reconciled = store.payments.filter((p) => p.status === "confirmado" && allocated(p) === p.amount.cents);
   for (const p of informed) {
-    tasks.push({ id: `inf:${p.id}`, step: "conciliar", severity: "bloquea", title: "Verificar un pago informado", detail: `${p.amount.currency} ${(p.amount.cents / 100).toLocaleString("es-AR")} del ${p.effectiveDate}: confirmá que está en la cuenta.`, href: `/cobranzas?periodo=${period}#pagos` });
+    tasks.push({ id: `inf:${p.id}`, step: "conciliar", severity: "bloquea", title: "Verificar un pago informado", detail: `${p.amount.currency} ${(p.amount.cents / 100).toLocaleString("es-AR")} del ${p.effectiveDate}: confirmá que está en la cuenta.`, href: `/cobranzas?periodo=${period}&ver=pagos` });
   }
   for (const p of unassigned) {
-    tasks.push({ id: `una:${p.id}`, step: "conciliar", severity: "revisar", title: "Asignar un pago sin identificar", detail: `Quedan ${p.amount.currency} ${((p.amount.cents - allocated(p)) / 100).toLocaleString("es-AR")} sin asignar a ningún alquiler.`, href: `/cobranzas?periodo=${period}#pagos` });
+    tasks.push({ id: `una:${p.id}`, step: "conciliar", severity: "revisar", title: "Asignar un pago sin identificar", detail: `Quedan ${p.amount.currency} ${((p.amount.cents - allocated(p)) / 100).toLocaleString("es-AR")} sin asignar a ningún alquiler.`, href: `/cobranzas?periodo=${period}&ver=pagos` });
   }
 
   // D. Liquidar.

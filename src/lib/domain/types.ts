@@ -233,10 +233,21 @@ export interface AuditEvent {
   reason?: string;
 }
 
+export type SubscriptionStatus = "sin_pagar" | "activa" | "pausada" | "cancelada";
+
+export interface Subscription {
+  status: SubscriptionStatus;
+  /** Id de la suscripción en Mercado Pago (preapproval). */
+  mpId?: string;
+  updatedAt: string;
+}
+
 export interface Organization {
   id: Id;
   name: string;
+  /** true mientras la cuenta use los datos de ejemplo. */
   isDemo: boolean;
+  subscription?: Subscription;
 }
 
 export interface Store {

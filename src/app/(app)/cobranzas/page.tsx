@@ -5,17 +5,20 @@ import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { reminderDraft } from "@/lib/domain/messages";
 import { unallocated } from "@/lib/domain/payments";
 import { METHOD_LABEL } from "@/lib/domain/types";
-import { getStore, periodFrom, today } from "@/lib/server/store";
+import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { ChargeChip, M, personName, propertyLabel } from "@/lib/view";
-import { allocateAction, confirmPaymentAction, recordPaymentAction, reverseAllocationAction, voidPaymentAction } from "../actions";
-import { ActionForm, CopyText } from "../ui";
+import { allocateAction, confirmPaymentAction, recordPaymentAction, reverseAllocationAction, voidPaymentAction } from "../../actions";
+import { ActionForm, CopyText } from "../../ui";
 
 export default async function Cobranzas({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
-  const store = getStore();
-  const period = periodFrom(sp);
+  const { store } = await requireApp();
+  const period = periodFrom(store, sp);
+  const hoy = today(store);
   const filter = typeof sp.estado === "string" ? sp.estado : "todos";
-  const all = chargesFor(store, period, today());
+  const ver = sp.ver === "pagos" ? "pagos" : "alquileres";
+  const pendingPayments = store.payments.filter((p) => p.status === "informado" || (p.status !== "anulado" && unallocated(p).cents > 0)).length;
+  const all = chargesFor(store, period, hoy);
   const charges = all.filter((c) => filter === "todos" || (filter === "deben" ? c.balance.cents > 0 : c.status === "pagado"));
   const open = all.filter((c) => c.balance.cents > 0);
   const payments = [...store.payments].sort((a, b) => (a.status === b.status ? b.effectiveDate.localeCompare(a.effectiveDate) : a.status === "informado" ? -1 : 1));
@@ -28,34 +31,61 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
   return (
     <>
       <div className="head">
-        <div><h1>Cobranzas</h1><p>Alquileres de {formatPeriod(period)} y pagos registrados.</p></div>
-        <div className="period">
-          {[["todos", "Todos"], ["deben", "Con saldo"], ["pagados", "Pagados"]].map(([k, l]) => (
-            k === filter ? <span key={k}>{l}</span> : <Link key={k} href={`/cobranzas?periodo=${period}&estado=${k}`}>{l}</Link>
-          ))}
-        </div>
+        <div><h1>Cobranzas</h1><p>{formatPeriod(period)}: {all.length - open.length} de {all.length} alquileres pagados.</p></div>
+        <details className="pop">
+          <summary className="btn">Registrar un pago</summary>
+          <div className="pop-body">
+            <p className="small muted" style={{ margin: 0 }}>Cargá un pago que ya ocurrió: Al Día no cobra ni mueve dinero.</p>
+            <ActionForm action={recordPaymentAction} submit="Registrar pago" className="stack">
+              <input type="hidden" name="period" value={period} />
+              <label className="field">¿De quién es?<select name="contractId" defaultValue=""><option value="">No sé todavía</option>{open.map((c) => <option key={c.key} value={c.contract.id}>{c.contract.code} · {personName(store, c.contract.tenantIds[0])} · debe {formatMoney(c.balance)}</option>)}</select></label>
+              <div className="row">
+                <label className="field">Importe<input name="amount" inputMode="decimal" required placeholder="620.000,00" /></label>
+                <label className="field">Moneda<select name="currency"><option value="ARS">Pesos</option><option value="USD">Dólares</option></select></label>
+              </div>
+              <div className="row">
+                <label className="field">Fecha<input type="date" name="date" required defaultValue={hoy} /></label>
+                <label className="field">Medio<select name="method">{Object.entries(METHOD_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+              </div>
+              <details>
+                <summary className="small">Más datos (opcional)</summary>
+                <label className="field">Número de operación (evita cargarlo dos veces)<input name="reference" /></label>
+                <label className="field">Nota<input name="note" placeholder="Ej.: pagó en la oficina" /></label>
+              </details>
+              <label className="field">¿Ya viste la plata?<select name="verified"><option value="no">Todavía no, me avisaron que pagó</option><option value="si">Sí, está en la cuenta o en mano</option></select></label>
+            </ActionForm>
+          </div>
+        </details>
       </div>
+      <nav className="tabs" aria-label="Ver">
+        <Link href={`/cobranzas?periodo=${period}`} aria-current={ver === "alquileres" ? "page" : undefined}>Alquileres</Link>
+        <Link href={`/cobranzas?periodo=${period}&ver=pagos`} aria-current={ver === "pagos" ? "page" : undefined}>Pagos recibidos{pendingPayments ? <span className="badge">{pendingPayments}</span> : null}</Link>
+      </nav>
 
-      <section className="section">
-        <header><h2>Alquileres del mes</h2><span className="small muted">{open.length} con saldo de {all.length}</span></header>
+      {ver === "alquileres" && <section className="section">
+        <header>
+          <div className="period">
+            {[["todos", "Todos"], ["deben", "Deben"], ["pagados", "Pagados"]].map(([k, l]) => (
+              k === filter ? <span key={k}>{l}</span> : <Link key={k} href={`/cobranzas?periodo=${period}&estado=${k}`}>{l}</Link>
+            ))}
+          </div>
+        </header>
         <div className="body flush tbl">
           {charges.length === 0 ? <p className="empty">No hay alquileres en este filtro.</p> : (
             <table>
-              <thead><tr><th>Contrato e inquilino</th><th>Vence</th><th className="r">Importe</th><th className="r">Saldo</th><th>Estado</th><th>Aviso</th></tr></thead>
+              <thead><tr><th>Inquilino</th><th className="r">Debe</th><th>Estado</th><th>Recordatorio</th></tr></thead>
               <tbody>
                 {charges.map((ch) => {
                   const draft = reminderDraft(store, ch);
                   return (
                     <tr key={ch.key}>
-                      <td><Link href={`/contratos/${ch.contract.id}?periodo=${period}`}><b>{ch.contract.code}</b></Link> · {ch.contract.tenantIds.map((t) => personName(store, t)).join(", ")}<div className="small muted">{propertyLabel(store, ch.contract.propertyId)}</div></td>
-                      <td>{formatDate(ch.dueDate)}</td>
-                      <td className="r"><M m={ch.amount} />{ch.provisional && <div className="small missing">provisorio</div>}</td>
-                      <td className="r"><M m={ch.balance.cents > 0 ? ch.balance : { cents: 0, currency: ch.contract.currency }} />{ch.informed.cents > 0 && <div className="small muted">{formatMoney(ch.informed)} informado</div>}{ch.lateFee && <div className="small muted" title={ch.lateFee.explanation}>+ {formatMoney(ch.lateFee.amount)} punitorios calculados</div>}</td>
-                      <td><ChargeChip c={ch} /></td>
+                      <td><b>{ch.contract.tenantIds.map((t) => personName(store, t)).join(", ")}</b><div className="small muted"><Link href={`/contratos/${ch.contract.id}?periodo=${period}`}>{ch.contract.code}</Link> · {propertyLabel(store, ch.contract.propertyId)}</div></td>
+                      <td className="r"><M m={ch.balance.cents > 0 ? ch.balance : { cents: 0, currency: ch.contract.currency }} />{ch.informed.cents > 0 && <div className="small muted">{formatMoney(ch.informed)} informado</div>}{ch.provisional && <div className="small missing">provisorio</div>}{ch.lateFee && <div className="small muted" title={ch.lateFee.explanation}>+ {formatMoney(ch.lateFee.amount)} punitorios calculados</div>}</td>
+                      <td><ChargeChip c={ch} /><div className="small muted">vence {formatDate(ch.dueDate)}</div></td>
                       <td>
                         {ch.balance.cents > 0 ? (
                           <details>
-                            <summary>Ver mensaje</summary>
+                            <summary>Armar mensaje</summary>
                             {draft.warnings.map((w) => <p key={w} className="small missing">{w}</p>)}
                             <CopyText text={draft.text} />
                             <p className="small muted">El envío automático por WhatsApp no está configurado. Copiá el texto y mandalo desde tu teléfono{draft.phone ? ` al ${draft.phone}` : ""}.</p>
@@ -69,33 +99,9 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
             </table>
           )}
         </div>
-      </section>
+      </section>}
 
-      <section className="section" id="registrar">
-        <header><h2>Registrar un pago</h2></header>
-        <div className="body">
-          <p className="small muted" style={{ margin: 0 }}>Cargá un pago que ya ocurrió: Al Día no cobra ni mueve dinero. Marcalo como verificado solo si ya viste la plata en la cuenta o la recibiste en mano.</p>
-          <ActionForm action={recordPaymentAction} submit="Registrar pago" className="stack">
-            <input type="hidden" name="period" value={period} />
-            <div className="row">
-              <label className="field">Alquiler (opcional)<select name="contractId" defaultValue=""><option value="">Sin asignar todavía</option>{open.map((c) => <option key={c.key} value={c.contract.id}>{c.contract.code} · saldo {formatMoney(c.balance)}</option>)}</select></label>
-              <label className="field">Moneda<select name="currency"><option value="ARS">Pesos (ARS)</option><option value="USD">Dólares (USD)</option></select></label>
-            </div>
-            <div className="row">
-              <label className="field">Importe<input name="amount" inputMode="decimal" required placeholder="620.000,00" /></label>
-              <label className="field">Fecha del pago<input type="date" name="date" required defaultValue={today()} /></label>
-              <label className="field">Medio<select name="method">{Object.entries(METHOD_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-            </div>
-            <div className="row">
-              <label className="field">Referencia u operación (evita duplicados)<input name="reference" /></label>
-              <label className="field">Nota<input name="note" placeholder="Ej.: pagó en la oficina" /></label>
-            </div>
-            <label className="field">¿Ya verificaste el pago?<select name="verified"><option value="no">No, me lo informaron</option><option value="si">Sí, la plata está en la cuenta o en mano</option></select></label>
-          </ActionForm>
-        </div>
-      </section>
-
-      <section className="section" id="pagos">
+      {ver === "pagos" && <section className="section" id="pagos">
         <header><h2>Pagos</h2><span className="small muted">Los informados no cuentan como cobrados hasta que los confirmes.</span></header>
         <div className="body">
           {payments.length === 0 && <p className="muted">Todavía no hay pagos registrados.</p>}
@@ -152,7 +158,7 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
             );
           })}
         </div>
-      </section>
+      </section>}
     </>
   );
 }
