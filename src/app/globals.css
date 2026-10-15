@@ -147,7 +147,7 @@ details > summary { cursor: pointer; color: var(--accent); font-size: 14px; }
 .hero.done { border-left-color: var(--ok); }
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 2px; }
-.kpi span { font-size: 13px; color: var(--muted); }
+.kpi > span { font-size: 13px; color: var(--muted); }
 .kpi b { font-size: 20px; font-weight: 600; }
 .stepper { list-style: none; margin: 0 0 16px; padding: 0; display: flex; gap: 6px; overflow-x: auto; }
 .stepper li { flex: 1 1 0; min-width: 0; }

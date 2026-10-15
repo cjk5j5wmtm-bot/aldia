@@ -5,9 +5,21 @@ import { addMonths, formatPeriod, type Period } from "./domain/period";
 import type { Store } from "./domain/types";
 import type { Step } from "./domain/close";
 
-export const Logo = () => (
-  <svg width="26" height="26" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#2443d6" /><path d="M8 15.5l4.5 4.5L22 10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+/** Logo de Al Día: casa con una A, en degradé azul. El mismo dibujo está en src/app/icon.svg (favicon). */
+export const Logo = ({ size = 28 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
+    <defs>
+      <linearGradient id="aldia-g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#4f46e5" /><stop offset="1" stopColor="#2563eb" /></linearGradient>
+      <clipPath id="aldia-c"><path d={HOUSE} /></clipPath>
+    </defs>
+    <path d={HOUSE} fill="url(#aldia-g)" />
+    <g clipPath="url(#aldia-c)" stroke="#fff">
+      <path d="M12.5 46 24 15.5 35.5 46" fill="none" strokeWidth="4.4" strokeLinejoin="round" />
+      <path d="M18 33h12" strokeWidth="3.8" />
+    </g>
+  </svg>
 );
+const HOUSE = "M24 3.5c.9 0 1.7.3 2.4.8l16 12.6c1 .8 1.6 2 1.6 3.3V40a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V20.2c0-1.3.6-2.5 1.6-3.3l16-12.6c.7-.5 1.5-.8 2.4-.8z";
 
 export const M = ({ m }: { m: Money }) => <span className="num">{formatMoney(m)}</span>;
 
