@@ -27,7 +27,7 @@ export function QuickAdd({ store, period, hoy }: { store: Store; period: Period;
             </div>
             <div className="row">
               <label className="field">Fecha<input type="date" name="date" required defaultValue={hoy} /></label>
-              <label className="field">Medio<select name="method">{Object.entries(METHOD_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+              <label className="field">Medio<select name="method" defaultValue={store.org.profile && store.org.profile.pays !== "mezcla" ? store.org.profile.pays : "transferencia"}>{Object.entries(METHOD_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             </div>
             <details>
               <summary className="small">Más datos (opcional)</summary>

@@ -37,6 +37,7 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
         </form>
         <QuickAdd store={store} period={period} hoy={hoy} />
       </div>
+      {store.org.profile?.tool === "excel" && <p className="focus-note">Pronto vas a poder traer tus contratos desde tu planilla de Excel. Todavía no está disponible.</p>}
       <section className="section">
         <div className="body flush tbl">
           {shown.length === 0 ? <p className="empty">No encontré contratos con esa búsqueda.</p> : (

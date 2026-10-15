@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { checkPassword, createUser, endSession, findUser, startSession } from "@/lib/server/auth";
 import { billingEnabled, createCheckout, refreshSubscription } from "@/lib/server/billing";
+import { focusPath, parseProfile } from "@/lib/domain/profile";
 import { sampleStore, saveStore, session } from "@/lib/server/store";
 
 export interface FormState {
@@ -31,7 +32,7 @@ export async function registerAction(_: FormState | null, f: FormData): Promise<
   } catch (e) {
     return { error: e instanceof Error ? e.message : "No se pudo crear la cuenta.", email };
   }
-  redirect(billingEnabled() ? "/suscripcion" : "/");
+  redirect("/bienvenida");
 }
 
 export async function loginAction(_: FormState | null, f: FormData): Promise<FormState> {
@@ -73,4 +74,21 @@ export async function checkSubscriptionAction(): Promise<FormState> {
     return { error: e instanceof Error ? e.message : "No se pudo consultar Mercado Pago." };
   }
   redirect("/");
+}
+
+/** Guarda las respuestas de bienvenida (o que las salteó) y lo lleva a la pantalla de su foco. */
+export async function saveProfileAction(_: FormState | null, f: FormData): Promise<FormState> {
+  const ctx = await session();
+  if (!ctx) redirect("/ingresar");
+  const store = structuredClone(ctx.store);
+  if (f.get("skip") !== "1") {
+    let raw: Record<string, unknown> = {};
+    try { raw = JSON.parse(String(f.get("answers") ?? "{}")); } catch { /* queda vacío */ }
+    const profile = parseProfile(raw, new Date().toISOString());
+    if (!profile) return { error: "Faltan respuestas. Volvé atrás y completalas, o salteá este paso." };
+    store.org.profile = profile;
+  }
+  store.org.onboarded = true;
+  await saveStore(store);
+  redirect(focusPath(store.org.profile));
 }

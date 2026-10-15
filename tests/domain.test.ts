@@ -258,3 +258,40 @@ describe("cierre del mes", () => {
     expect(s.closes[0].exceptionReason).toBeUndefined();
   });
 });
+
+import { focusPath, indexMismatches, parseProfile, profileSummary } from "../src/lib/domain/profile";
+
+describe("preguntas de bienvenida", () => {
+  const raw = { size: "21-80", pains: ["cobrar", "aumentos"], late: "muchos", pays: "transferencia", indices: ["IPC"], tool: "excel" };
+
+  it("valida respuestas completas y rechaza incompletas o inventadas", () => {
+    expect(parseProfile(raw, "t")?.pains).toEqual(["cobrar", "aumentos"]);
+    expect(parseProfile({ ...raw, pains: [] }, "t")).toBeUndefined();
+    expect(parseProfile({ ...raw, size: "mil" }, "t")).toBeUndefined();
+    expect(parseProfile({ ...raw, pains: ["cobrar", "hackear"] }, "t")?.pains).toEqual(["cobrar"]);
+  });
+
+  it("\"No estoy seguro\" no se mezcla con índices concretos", () => {
+    expect(parseProfile({ ...raw, indices: ["IPC", "no_se"] }, "t")?.indices).toEqual(["no_se"]);
+  });
+
+  it("arranca por lo que más le cuesta", () => {
+    expect(focusPath(parseProfile(raw, "t"))).toBe("/cobranzas");
+    expect(focusPath(parseProfile({ ...raw, pains: ["liquidar"] }, "t"))).toBe("/propietarios");
+    expect(focusPath(undefined)).toBe("/");
+  });
+
+  it("arma como mucho tres frases, empezando por el foco", () => {
+    const lines = profileSummary(parseProfile(raw, "t")!);
+    expect(lines.length).toBe(3);
+    expect(lines[0]).toContain("Cobranzas");
+    expect(lines[2]).toContain("Transferencia");
+  });
+
+  it("avisa de contratos con un índice que no nombró", () => {
+    const p = parseProfile(raw, "t")!;
+    const c = (index: "IPC" | "ICL") => ({ code: index, adjustment: { index } }) as never;
+    expect(indexMismatches(p, [c("IPC"), c("ICL")]).length).toBe(1);
+    expect(indexMismatches({ ...p, indices: ["no_se"] }, [c("ICL")]).length).toBe(0);
+  });
+});

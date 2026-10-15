@@ -16,7 +16,9 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
   const { store } = await requireApp();
   const period = periodFrom(store, sp);
   const hoy = today(store);
-  const filter = typeof sp.estado === "string" ? sp.estado : "todos";
+  const prof = store.org.profile;
+  const debtorsFirst = Boolean(prof && (prof.pains.includes("cobrar") || prof.late !== "pocos"));
+  const filter = typeof sp.estado === "string" ? sp.estado : debtorsFirst ? "deben" : "todos";
   const ver = sp.ver === "pagos" ? "pagos" : "alquileres";
   const pendingPayments = store.payments.filter((p) => p.status === "informado" || (p.status !== "anulado" && unallocated(p).cents > 0)).length;
   const all = chargesFor(store, period, hoy);
@@ -40,6 +42,9 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
         <Link href={`/cobranzas?periodo=${period}&ver=pagos`} aria-current={ver === "pagos" ? "page" : undefined}>Pagos recibidos{pendingPayments ? <span className="badge">{pendingPayments}</span> : null}</Link>
       </nav>
 
+      {ver === "alquileres" && debtorsFirst && typeof sp.estado !== "string" && (
+        <p className="focus-note">Como nos contaste que cobrar te cuesta, te mostramos primero a los que deben. En cada uno tenés el recordatorio de WhatsApp listo para copiar.</p>
+      )}
       {ver === "alquileres" && <section className="section">
         <header>
           <div className="period">

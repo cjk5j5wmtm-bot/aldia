@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Suspense fallback={null}><Nav /></Suspense>
           <div className="foot">
             <span><b>{store.org.name}</b><br />{user.email}</span>
+            <a className="link-btn" href="/bienvenida">Cambiar mis respuestas</a>
             {store.org.isDemo && (
               <form action={resetDemoAction}><button className="link-btn" type="submit">Reiniciar datos de ejemplo</button></form>
             )}

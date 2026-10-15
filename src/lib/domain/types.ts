@@ -248,6 +248,24 @@ export interface Organization {
   /** true mientras la cuenta use los datos de ejemplo. */
   isDemo: boolean;
   subscription?: Subscription;
+  /** Respuestas de las preguntas de bienvenida. */
+  profile?: Profile;
+  /** true cuando ya pasó por las preguntas de bienvenida (aunque las haya salteado). */
+  onboarded?: boolean;
+}
+
+export type Pain = "cobrar" | "aumentos" | "liquidar" | "orden";
+export type IndexAnswer = "IPC" | "ICL" | "OTRO" | "no_se";
+
+export interface Profile {
+  size: "1-20" | "21-80" | "81-200" | "200+";
+  /** En el orden en que los eligió: el primero es el foco principal. */
+  pains: Pain[];
+  late: "pocos" | "algunos" | "muchos";
+  pays: PaymentMethod | "mezcla";
+  indices: IndexAnswer[];
+  tool: "excel" | "cuaderno" | "sistema" | "cabeza";
+  answeredAt: string;
 }
 
 export interface Store {

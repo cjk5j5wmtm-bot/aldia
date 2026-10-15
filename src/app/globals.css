@@ -261,3 +261,24 @@ tbody tr:hover td { background: rgba(148, 170, 220, 0.03); }
   .hero { padding: 22px 20px; }
   .nav a { padding: 8px 10px; }
 }
+
+/* Preguntas de bienvenida */
+.auth-card:has(.onb) { width: min(540px, 100%); }
+.onb { display: grid; gap: 14px; }
+.onb h1 { font-size: 26px; }
+.onb p { margin: 0; }
+.onb .eyebrow { margin: 0; }
+.onb-progress { display: flex; gap: 6px; }
+.onb-progress i { flex: 1; height: 4px; border-radius: 4px; background: rgba(148, 170, 220, 0.14); }
+.onb-progress i.on { background: var(--accent-grad); }
+.onb-options { display: grid; gap: 10px; margin-top: 4px; }
+.onb-option { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; font: inherit; font-size: 16px; font-weight: 550; color: var(--ink); padding: 16px 18px; border-radius: 14px; border: 1px solid var(--line-strong); background: rgba(148, 170, 220, 0.05); cursor: pointer; transition: border-color .15s, background .15s; }
+.onb-option:hover { border-color: rgba(91, 140, 255, 0.5); background: rgba(59, 91, 255, 0.08); }
+.onb-option[aria-pressed="true"] { border-color: var(--accent); background: rgba(59, 91, 255, 0.16); }
+.onb-check { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; }
+.onb-option[aria-pressed="true"] .onb-check { background: var(--accent-grad); border-color: transparent; }
+.onb-option[aria-pressed="true"] .onb-check::after { content: ""; width: 9px; height: 5px; border: solid #fff; border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
+.onb-actions { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 6px; }
+.onb-summary { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.onb-summary li { padding: 14px 16px; border-radius: 12px; background: rgba(59, 91, 255, 0.08); border: 1px solid rgba(91, 140, 255, 0.2); color: #C9D4EC; }
+.focus-note { margin: 0 0 14px; padding: 12px 16px; border-radius: 12px; background: rgba(59, 91, 255, 0.08); border: 1px solid rgba(91, 140, 255, 0.2); color: #C9D4EC; font-size: 14px; }

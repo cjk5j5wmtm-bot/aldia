@@ -25,6 +25,8 @@ export async function saveStore(store: Store) {
 export function sampleStore(orgId: string, name: string, keep?: Store) {
   const s = demoStore(orgId, name);
   if (keep?.org.subscription) s.org.subscription = keep.org.subscription;
+  if (keep?.org.profile) s.org.profile = keep.org.profile;
+  if (keep?.org.onboarded) s.org.onboarded = keep.org.onboarded;
   return s;
 }
 
@@ -46,6 +48,7 @@ export const session = cache(async (): Promise<Ctx | null> => {
 export async function requireApp(): Promise<Ctx> {
   const ctx = await session();
   if (!ctx) redirect("/ingresar");
+  if (!ctx.store.org.onboarded) redirect("/bienvenida");
   if (billingEnabled() && ctx.store.org.subscription?.status !== "activa") redirect("/suscripcion");
   return ctx;
 }

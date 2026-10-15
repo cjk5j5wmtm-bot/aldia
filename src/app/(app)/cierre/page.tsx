@@ -1,3 +1,4 @@
+import { indexMismatches } from "@/lib/domain/profile";
 import Link from "next/link";
 import { adjustmentPeriods, computeAdjustment, explainAdjustment } from "@/lib/domain/adjustments";
 import { contractCoversPeriod } from "@/lib/domain/charges";
@@ -25,6 +26,7 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
   const expenses = store.expenses.filter((e) => e.period === period);
   const stepTasks = (k: string) => st.tasks.filter((t) => t.step === k);
 
+  const mismatches = indexMismatches(store.org.profile, due);
   return (
     <>
       <div className="head">
@@ -32,6 +34,12 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
         <div className="head-actions"><PeriodPicker period={period} base={`/cierre?paso=${paso}`} /><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
       <Stepper steps={st.steps} period={period} current={paso} />
+      {paso === "preparar" && store.org.profile?.indices.includes("no_se") && (
+        <p className="focus-note">Nos dijiste que no estás seguro de qué índice usan tus contratos. En cada aumento figura el índice cargado: comparalo con la cláusula del contrato antes de aprobar.</p>
+      )}
+      {paso === "preparar" && mismatches.length > 0 && (
+        <p className="focus-note">{mismatches.map((c) => c.code).join(", ")} {mismatches.length === 1 ? "usa" : "usan"} un índice que no nombraste en tus respuestas. Revisá que esté bien cargado.</p>
+      )}
 
       {paso === "preparar" && <section className="section" id="preparar">
         <header><h2>Preparar el mes</h2><span className={`chip ${st.steps[0].complete ? "ok" : "warn"}`}>{st.steps[0].complete ? "Completo" : "Pendiente"}</span></header>
