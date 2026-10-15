@@ -39,6 +39,9 @@ h3 { font-size: 15px; font-weight: 600; }
 .shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
 .side { border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; height: 100vh; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; padding-inline: 8px; color: var(--ink); text-decoration: none; }
+.wordmark { font-weight: 800; letter-spacing: -0.03em; }
+.wm-i { position: relative; }
+.wm-i::after { content: ""; position: absolute; left: 50%; top: 0.06em; width: 0.24em; height: 0.24em; border-radius: 50%; background: #1766FF; transform: translateX(-50%); }
 .nav { display: grid; gap: 2px; }
 .nav a { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; }
 .nav a:hover { background: var(--accent-soft); }

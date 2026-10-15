@@ -5,21 +5,23 @@ import { addMonths, formatPeriod, type Period } from "./domain/period";
 import type { Store } from "./domain/types";
 import type { Step } from "./domain/close";
 
-/** Logo de Al Día: casa con una A, en degradé azul. El mismo dibujo está en src/app/icon.svg (favicon). */
+/** Logo de Al Día: casa en dos azules con un tilde adentro. El mismo dibujo está en src/app/icon.svg (favicon). */
 export const Logo = ({ size = 28 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
     <defs>
-      <linearGradient id="aldia-g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#4f46e5" /><stop offset="1" stopColor="#2563eb" /></linearGradient>
-      <clipPath id="aldia-c"><path d={HOUSE} /></clipPath>
+      <linearGradient id="aldia-l" x1="0" y1="1" x2="0.6" y2="0"><stop offset="0" stopColor="#0A2FC2" /><stop offset="1" stopColor="#1F55F0" /></linearGradient>
+      <linearGradient id="aldia-r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#3D86FF" /><stop offset="1" stopColor="#5AA9FF" /></linearGradient>
     </defs>
-    <path d={HOUSE} fill="url(#aldia-g)" />
-    <g clipPath="url(#aldia-c)" stroke="#fff">
-      <path d="M12.5 46 24 15.5 35.5 46" fill="none" strokeWidth="4.4" strokeLinejoin="round" />
-      <path d="M18 33h12" strokeWidth="3.8" />
-    </g>
+    <path d="M26 2 46 15.2V26L26 12.6Z" fill="url(#aldia-r)" stroke="url(#aldia-r)" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M26 2V12.6L13 21.4V46H2V17.6Z" fill="url(#aldia-l)" stroke="url(#aldia-l)" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M18 33.5 23.5 39.5 34 29" fill="none" stroke="#1766FF" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-const HOUSE = "M24 3.5c.9 0 1.7.3 2.4.8l16 12.6c1 .8 1.6 2 1.6 3.3V40a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V20.2c0-1.3.6-2.5 1.6-3.3l16-12.6c.7-.5 1.5-.8 2.4-.8z";
+
+/** Marca escrita como en el logo: "Aldia" con el punto de la i en azul. */
+export const Wordmark = () => (
+  <span className="wordmark" aria-label="Al Día">Ald<span className="wm-i">ı</span>a</span>
+);
 
 export const M = ({ m }: { m: Money }) => <span className="num">{formatMoney(m)}</span>;
 

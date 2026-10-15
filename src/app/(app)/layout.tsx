@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { requireApp } from "@/lib/server/store";
-import { Logo } from "@/lib/view";
+import { Logo, Wordmark } from "@/lib/view";
 import { logoutAction } from "../(cuenta)/actions";
 import { resetDemoAction } from "../actions";
 import { Nav } from "../nav";
@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       )}
       <div className="shell">
         <aside className="side">
-          <a className="brand" href="/"><Logo /> Al Día</a>
+          <a className="brand" href="/"><Logo /> <Wordmark /></a>
           <Suspense fallback={null}><Nav /></Suspense>
           <div className="foot">
             <span><b>{store.org.name}</b><br />{user.email}</span>
