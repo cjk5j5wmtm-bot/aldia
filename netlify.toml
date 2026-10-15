@@ -1,6 +1,11 @@
+# Netlify: compila la app y la sirve con el runtime oficial de Next.js.
+# Sin el plugin, Netlify publica la carpeta .next como archivos sueltos y todo da "Page not found".
 [build]
   command = "npm run build"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
