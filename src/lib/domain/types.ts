@@ -139,7 +139,7 @@ export interface Allocation {
 
 /**
  * Pago que ocurrió fuera del sistema. "informado": alguien dijo que pagó o vino de un archivo.
- * "confirmado": el administrador verificó que la plata está en la cuenta. Al Día no mueve dinero.
+ * "confirmado": el administrador verificó que la plata está en la cuenta. Aldia no mueve dinero.
  */
 export interface Payment {
   id: Id;

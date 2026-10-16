@@ -5,7 +5,7 @@ import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, personName } from "@/lib/view";
 import { isHidden, settlementKey } from "@/lib/domain/hidden";
 import { approveSettlementAction, hideItemAction, informSettlementAction, showItemAction, transferAction } from "../../actions";
-import { ActionForm, CopyText } from "../../ui";
+import { ActionForm, CopyText, IconAction } from "../../ui";
 import { QuickAdd } from "../quick-add";
 
 export default async function Propietarios({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -37,11 +37,18 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
           <section className="section" id={ownerId} key={`${ownerId}:${currency}`}>
             <header>
               <h2>{personName(store, ownerId)} · {currency}</h2>
-              <span className={`chip ${rec ? "ok" : s.blockers.length ? "warn" : "info"}`}>{settlementLabel(rec)}{!rec && s.blockers.length ? ", con pendientes" : ""}</span>
+              <div className="row-actions">
+                <span className={`chip ${rec ? "ok" : s.blockers.length ? "warn" : "info"}`}>{settlementLabel(rec)}{!rec && s.blockers.length ? ", con pendientes" : ""}</span>
+                {rec?.status === "pago_registrado" && <IconAction action={hideItemAction} fields={{ key: settlementKey(rec.id) }} label="Quitar de la lista" />}
+              </div>
             </header>
             <div className="body">
-              <div className="big-line">Le corresponden <b><M m={s.net} /></b></div>
-              <span className="small muted">Cobrado <M m={s.collected} />, menos comisión <M m={s.commission} /> y gastos <M m={s.expenses} />.</span>
+              <div className="breakdown">
+                <div><span>Cobrado</span><b><M m={s.collected} /></b></div>
+                <div><span>Comisión</span><b>−<M m={s.commission} /></b></div>
+                <div><span>Gastos</span><b>−<M m={s.expenses} /></b></div>
+                <div><span>Neto para el dueño</span><b><M m={s.net} /></b></div>
+              </div>
             </div>
             <details className="more">
             <summary>Ver el detalle por contrato</summary>
@@ -68,8 +75,10 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
             </details>
             <div className="body">
               <p className="small muted" style={{ margin: 0 }}>Calculado solo con pagos verificados y gastos confirmados de {formatPeriod(period)}.{rec ? ` Aprobada por ${rec.approvedBy} el ${formatDate(rec.approvedAt.slice(0, 10))}: este detalle quedó guardado y no cambia.` : ""}</p>
-              {!rec && s.blockers.map((b) => <div key={b} className="missing">{b}</div>)}
-              {!rec && (
+              {!rec && s.blockers.length > 0 && <p className="small" style={{ fontWeight: 500 }}>Antes de aprobar, falta resolver:</p>}
+              {!rec && s.blockers.map((b) => <div key={b} className="missing">• {b}</div>)}
+              {!rec && s.blockers.length > 0 && <p className="small muted">El botón para aprobar aparece cuando esté todo resuelto.</p>}
+              {!rec && s.blockers.length === 0 && (
                 <ActionForm action={approveSettlementAction} submit="Aprobar liquidación" confirm="¿Aprobar? El detalle queda guardado tal como está ahora.">
                   <input type="hidden" name="ownerId" value={ownerId} /><input type="hidden" name="period" value={period} /><input type="hidden" name="currency" value={currency} />
                 </ActionForm>
@@ -87,7 +96,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
               {rec && rec.status !== "pago_registrado" && (
                 <details>
                   <summary>Registrar la transferencia que hiciste</summary>
-                  <p className="small muted">Al Día no transfiere dinero. Esto solo deja constancia de una transferencia que hiciste desde tu banco.</p>
+                  <p className="small muted">Aldia no transfiere dinero. Esto solo deja constancia de una transferencia que hiciste desde tu banco.</p>
                   <ActionForm action={transferAction} submit="Registrar transferencia">
                     <input type="hidden" name="id" value={rec.id} />
                     <label className="field">Fecha<input type="date" name="date" defaultValue={hoy} required /></label>
@@ -96,9 +105,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
                 </details>
               )}
               {rec?.externalTransfer && <p style={{ margin: 0 }}>Transferencia registrada: {formatDate(rec.externalTransfer.date)}, operación {rec.externalTransfer.reference}.</p>}
-              {rec?.status === "pago_registrado" && (
-                <ActionForm action={hideItemAction} submit="✕ Quitar de la lista" variant="ghost"><input type="hidden" name="key" value={settlementKey(rec.id)} /></ActionForm>
-              )}
+
             </div>
           </section>
         );
@@ -112,7 +119,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
               return (
                 <div key={r.id} className="calc row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                   <span>{personName(store, o.ownerId)} · {o.currency} · <M m={r.snapshot.net} /> · transferencia registrada</span>
-                  <ActionForm action={showItemAction} submit="Volver a mostrar" variant="ghost"><input type="hidden" name="key" value={settlementKey(r.id)} /></ActionForm>
+                  <IconAction action={showItemAction} fields={{ key: settlementKey(r.id) }} label="Volver a mostrar" kind="restore" />
                 </div>
               );
             })}

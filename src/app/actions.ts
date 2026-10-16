@@ -150,7 +150,7 @@ export async function informSettlementAction(_: ActionResult | null, f: FormData
 }
 
 export async function transferAction(_: ActionResult | null, f: FormData) {
-  return run((s, ACTOR, hoy) => (registerExternalTransfer(s, str(f, "id"), str(f, "date"), str(f, "reference"), ACTOR), "Transferencia registrada. Al Día no la ejecuta: solo deja constancia."));
+  return run((s, ACTOR, hoy) => (registerExternalTransfer(s, str(f, "id"), str(f, "date"), str(f, "reference"), ACTOR), "Transferencia registrada. Aldia no la ejecuta: solo deja constancia."));
 }
 
 export async function closePeriodAction(_: ActionResult | null, f: FormData) {

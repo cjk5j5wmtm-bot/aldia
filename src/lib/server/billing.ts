@@ -5,7 +5,7 @@ import type { Store, SubscriptionStatus } from "../domain/types";
  * Suscripción mensual con Mercado Pago (API de suscripciones / preapproval).
  * Se activa solo si está configurada la variable MP_ACCESS_TOKEN (Access Token de producción
  * de la cuenta de Mercado Pago que cobra). Sin ella, la app no pide pago.
- * Al Día no guarda datos de tarjetas: el pago ocurre en Mercado Pago.
+ * Aldia no guarda datos de tarjetas: el pago ocurre en Mercado Pago.
  */
 export const billingEnabled = () => !!process.env.MP_ACCESS_TOKEN;
 export const PRICE_ARS = Number(process.env.ALDIA_PRECIO_ARS || 29900);
@@ -48,7 +48,7 @@ export async function createCheckout(store: Store, payerEmail: string, baseUrl: 
   const p = await mp<Preapproval>("/preapproval", {
     method: "POST",
     body: JSON.stringify({
-      reason: "Al Día · suscripción mensual",
+      reason: "Aldia · suscripción mensual",
       external_reference: store.org.id,
       payer_email: payerEmail,
       back_url: `${baseUrl}/suscripcion`,

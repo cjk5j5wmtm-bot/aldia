@@ -30,18 +30,20 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
     <>
       <div className="head">
         <div><h1>Contratos</h1><p>{rows.length} contratos{q ? ` que coinciden con “${q}”` : " activos"}.</p></div>
-        <form className="aform" role="search">
-          <input type="hidden" name="periodo" value={period} />
-          <label className="field">Buscar por código, dirección, inquilino o propietario<input name="q" defaultValue={q} /></label>
-          <button className="btn ghost" type="submit">Buscar</button>
-        </form>
-        <QuickAdd store={store} period={period} hoy={hoy} />
+        <div className="head-actions"><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
       {store.org.profile?.tool === "excel" && <p className="focus-note">Pronto vas a poder traer tus contratos desde tu planilla de Excel. Todavía no está disponible.</p>}
       <section className="section">
+        <header>
+          <form className="aform inline" role="search" style={{ flex: "1 1 320px" }}>
+            <input type="hidden" name="periodo" value={period} />
+            <label className="field" style={{ flex: 1 }}><span className="sr">Buscar</span><input name="q" defaultValue={q} placeholder="Buscar por código, dirección, inquilino o propietario" /></label>
+            <button className="btn ghost" type="submit">Buscar</button>
+          </form>
+        </header>
         <div className="body flush tbl">
           {shown.length === 0 ? <p className="empty">No encontré contratos con esa búsqueda.</p> : (
-            <table>
+            <table className="cards">
               <thead><tr><th>Contrato</th><th>Inquilino</th><th>Propietarios</th><th className="r">Alquiler vigente</th><th>Próximo aumento</th><th>Datos</th></tr></thead>
               <tbody>
                 {shown.map((c) => {

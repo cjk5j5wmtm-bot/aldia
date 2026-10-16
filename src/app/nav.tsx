@@ -19,18 +19,21 @@ const ITEMS = [
   { href: "/contratos", label: "Contratos" },
 ];
 
-export function Nav() {
+const SHORT: Record<string, string> = { "/": "Inicio", "/cierre": "Cierre", "/cobranzas": "Cobranzas", "/propietarios": "Dueños", "/contratos": "Contratos" };
+
+/** Menú de secciones: lateral en escritorio y barra inferior en celular (variant="tabbar"). */
+export function Nav({ variant = "side" }: { variant?: "side" | "tabbar" }) {
   const path = usePathname();
   const sp = useSearchParams();
   const q = sp.get("periodo") ? `?periodo=${sp.get("periodo")}` : "";
   return (
-    <nav className="nav" aria-label="Secciones">
+    <nav className={variant === "tabbar" ? "tabbar" : "nav"} aria-label="Secciones">
       {ITEMS.map((i) => {
         const active = i.href === "/" ? path === "/" : path.startsWith(i.href);
         return (
           <Link key={i.href} href={`${i.href}${q}`} aria-current={active ? "page" : undefined}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[i.href]}</svg>
-            {i.label}
+            <svg width={variant === "tabbar" ? 22 : 18} height={variant === "tabbar" ? 22 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[i.href]}</svg>
+            {variant === "tabbar" ? SHORT[i.href] : i.label}
           </Link>
         );
       })}

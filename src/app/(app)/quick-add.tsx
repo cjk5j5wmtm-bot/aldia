@@ -17,7 +17,7 @@ export function QuickAdd({ store, period, hoy }: { store: Store; period: Period;
         <CloseDetails />
         <details open name="agregar">
           <summary><b>Registrar un pago</b></summary>
-          <p className="small muted">Un pago que ya ocurrió. Al Día no cobra ni mueve dinero.</p>
+          <p className="small muted">Un pago que ya ocurrió. Aldia no cobra ni mueve dinero.</p>
           <ActionForm action={recordPaymentAction} submit="Registrar pago" className="stack">
             <input type="hidden" name="period" value={period} />
             <label className="field">¿De quién es?<select name="contractId" defaultValue=""><option value="">No sé todavía</option>{open.map((c) => <option key={c.key} value={c.contract.id}>{c.contract.code} · {personName(store, c.contract.tenantIds[0])} · debe {formatMoney(c.balance)}</option>)}</select></label>

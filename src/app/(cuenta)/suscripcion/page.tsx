@@ -21,7 +21,7 @@ export default async function Suscripcion({ searchParams }: { searchParams: Prom
   return (
     <>
       <h1>{status === "pausada" || status === "cancelada" ? "Tu suscripción no está activa" : "Activá tu suscripción"}</h1>
-      <p className="muted">Hola, {ctx.store.org.name}. Para usar Al Día necesitás la suscripción mensual.</p>
+      <p className="muted">Hola, {ctx.store.org.name}. Para usar Aldia necesitás la suscripción mensual.</p>
       <div className="price">
         <span className="num">{priceLabel()}</span>
         <span className="muted">por mes</span>
@@ -29,7 +29,7 @@ export default async function Suscripcion({ searchParams }: { searchParams: Prom
       <ul className="small muted bullets">
         <li>Aumentos por índice, cobranzas y liquidaciones en un solo lugar.</li>
         <li>Se cobra todos los meses en tu cuenta de Mercado Pago. Lo podés cancelar cuando quieras desde Mercado Pago.</li>
-        <li>Al Día no ve ni guarda los datos de tu tarjeta.</li>
+        <li>Aldia no ve ni guarda los datos de tu tarjeta.</li>
       </ul>
       <PayButton />
       <CheckButton />

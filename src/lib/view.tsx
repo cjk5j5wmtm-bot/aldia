@@ -5,7 +5,7 @@ import { addMonths, formatPeriod, type Period } from "./domain/period";
 import type { Store } from "./domain/types";
 import type { Step } from "./domain/close";
 
-/** Logo de Al Día: casa en dos azules con un tilde adentro. El mismo dibujo está en src/app/icon.svg (favicon). */
+/** Logo de Aldia: casa en dos azules con un tilde adentro. El mismo dibujo está en src/app/icon.svg (favicon). */
 export const Logo = ({ size = 28 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
     <defs>
@@ -20,7 +20,7 @@ export const Logo = ({ size = 28 }: { size?: number }) => (
 
 /** Marca escrita como en el logo: "Aldia" con el punto de la i en azul. */
 export const Wordmark = () => (
-  <span className="wordmark" aria-label="Al Día">Ald<span className="wm-i">ı</span>a</span>
+  <span className="wordmark" aria-label="Aldia">Ald<span className="wm-i">ı</span>a</span>
 );
 
 export const M = ({ m }: { m: Money }) => <span className="num">{formatMoney(m)}</span>;
@@ -63,19 +63,17 @@ export function totalsByCurrency(charges: Charge[]) {
   });
 }
 
-/** Los 5 pasos del cierre en una fila compacta. El actual es el primero sin completar. */
-export function Stepper({ steps, period, current }: { steps: Step[]; period: Period; current?: string }) {
-  const active = current ?? steps.find((s) => !s.complete)?.key;
+/** Etapas del cierre como control segmentado: punto verde si está completa, ámbar si falta algo. Sin números. */
+export function Stages({ steps, period, current }: { steps: Step[]; period: Period; current: string }) {
   return (
-    <ol className="stepper" aria-label="Pasos del cierre">
-      {steps.map((s, i) => (
-        <li key={s.key} className={`${s.complete ? "done" : ""} ${s.key === active ? "now" : ""}`}>
-          <Link href={`/cierre?periodo=${period}&paso=${s.key}`} aria-current={s.key === active ? "step" : undefined}>
-            <span className="dot" aria-hidden="true">{s.complete ? "✓" : i + 1}</span>
-            <span className="name">{s.title}</span>
-          </Link>
-        </li>
+    <nav className="stages" aria-label="Etapas del cierre">
+      {steps.map((s) => (
+        <Link key={s.key} href={`/cierre?periodo=${period}&paso=${s.key}`} aria-current={s.key === current ? "step" : undefined}>
+          <span className={`st ${s.complete ? "done" : ""}`} aria-label={s.complete ? "Completa" : "Con pendientes"} />
+          {SHORT_STEP[s.key] ?? s.title}
+        </Link>
       ))}
-    </ol>
+    </nav>
   );
 }
+const SHORT_STEP: Record<string, string> = { preparar: "Preparar", cobrar: "Cobrar", conciliar: "Conciliar", liquidar: "Liquidar", cerrar: "Cerrar" };

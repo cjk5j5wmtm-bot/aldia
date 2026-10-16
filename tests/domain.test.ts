@@ -299,20 +299,19 @@ describe("preguntas de bienvenida", () => {
 import { clearCharges, restoreCharges } from "../src/lib/domain/cleared";
 import { chargesFor } from "../src/lib/domain/charges";
 
-describe("quitar alquileres pagados de la lista", () => {
-  it("solo deja quitar los pagados, sin tocar pagos, y se puede deshacer", () => {
+describe("borrar alquileres de la lista de cobranzas", () => {
+  it("se puede borrar cualquiera de la vista, sin tocar pagos ni saldos, y se puede deshacer", () => {
     const s = demoStore("org_t", "Test");
     const all = chargesFor(s, DEMO_PERIOD, DEMO_TODAY);
-    const paid = all.filter((c) => c.status === "pagado");
     const unpaid = all.find((c) => c.status !== "pagado")!;
     const payments = JSON.stringify(s.payments);
-    expect(() => clearCharges(s, [unpaid], "yo")).toThrow(/todavía no está pagado/);
-    clearCharges(s, paid, "yo");
-    expect(s.clearedCharges).toEqual(paid.map((c) => c.key));
+    clearCharges(s, [unpaid], "yo");
+    expect(s.clearedCharges).toEqual([unpaid.key]);
     expect(JSON.stringify(s.payments)).toBe(payments);
-    expect(chargesFor(s, DEMO_PERIOD, DEMO_TODAY).length).toBe(all.length);
-    restoreCharges(s, [paid[0].key], "yo");
-    expect(s.clearedCharges).not.toContain(paid[0].key);
+    const after = chargesFor(s, DEMO_PERIOD, DEMO_TODAY);
+    expect(after.find((c) => c.key === unpaid.key)!.balance).toEqual(unpaid.balance);
+    restoreCharges(s, [unpaid.key], "yo");
+    expect(s.clearedCharges).toEqual([]);
   });
 });
 
@@ -328,11 +327,25 @@ describe("quitar de la lista en otras secciones", () => {
     expect(isHidden(s, k)).toBe(false);
   });
 
-  it("pagos con algo pendiente y liquidaciones sin transferencia no se pueden quitar", () => {
+  it("borrar un pago revierte sus asignaciones y el alquiler vuelve a deber", () => {
     const s = demoStore("org_t", "Test");
-    const informed = s.payments.find((p) => p.status === "informado")!;
-    expect(() => hideItem(s, paymentKey(informed.id), "yo")).toThrow(/pendiente/);
-    s.settlements.push({ id: "liq_x", status: "aprobada" } as never);
+    const p = s.payments.find((x) => x.status === "confirmado" && x.allocations.some((a) => !a.reversed))!;
+    const key = p.allocations.find((a) => !a.reversed)!.chargeKey;
+    const before = chargesFor(s, DEMO_PERIOD, DEMO_TODAY).find((c) => c.key === key)!;
+    hideItem(s, paymentKey(p.id), "yo");
+    expect(p.status).toBe("anulado");
+    expect(p.allocations.every((a) => a.reversed)).toBe(true);
+    const after = chargesFor(s, DEMO_PERIOD, DEMO_TODAY).find((c) => c.key === key)!;
+    expect(after.balance.cents).toBeGreaterThan(before.balance.cents);
+    expect(s.audit.some((e) => e.action === "borró un pago")).toBe(true);
+  });
+
+  it("no deja borrar un pago que ya entró en una liquidación aprobada, ni quitar liquidaciones sin transferencia", () => {
+    const s = demoStore("org_t", "Test");
+    const p = s.payments.find((x) => x.status === "confirmado" && x.allocations.some((a) => !a.reversed))!;
+    const [contractId, period] = p.allocations[0].chargeKey.split(":");
+    s.settlements.push({ id: "liq_x", period, status: "aprobada", snapshot: { lines: [{ contractId }] } } as never);
+    expect(() => hideItem(s, paymentKey(p.id), "yo")).toThrow(/liquidación aprobada/);
     expect(() => hideItem(s, settlementKey("liq_x"), "yo")).toThrow(/transferencia/);
     expect(() => hideItem(s, "contrato:c1", "yo")).toThrow();
   });

@@ -77,7 +77,7 @@ export function markSettlementInformed(store: Store, id: string, actor: string) 
   audit(store, actor, "marcó la liquidación como informada al propietario", "liquidación", s.id);
 }
 
-/** La inmobiliaria registra una transferencia que hizo por fuera. Al Día no transfiere. */
+/** La inmobiliaria registra una transferencia que hizo por fuera. Aldia no transfiere. */
 export function registerExternalTransfer(store: Store, id: string, date: ISODate, reference: string, actor: string) {
   const s = store.settlements.find((x) => x.id === id);
   if (!s) throw new Error("No encontré la liquidación.");

@@ -26,7 +26,7 @@ export function Onboarding({ name, initial }: { name: string; initial?: Profile 
       <div className="onb">
         <p className="eyebrow">Bienvenida</p>
         <h1>Hola, {name}</h1>
-        <p className="muted">Antes de empezar, contanos cómo trabajás. Son {total} preguntas que se responden tocando, y con eso armamos Al Día a tu medida.</p>
+        <p className="muted">Antes de empezar, contanos cómo trabajás. Son {total} preguntas que se responden tocando, y con eso armamos Aldia a tu medida.</p>
         <button className="btn big" onClick={() => setStep(0)}>Empezar</button>
         {skip}
       </div>
@@ -38,14 +38,14 @@ export function Onboarding({ name, initial }: { name: string; initial?: Profile 
     return (
       <div className="onb">
         <p className="eyebrow">Listo</p>
-        <h1>Armamos Al Día para vos</h1>
+        <h1>Armamos Aldia para vos</h1>
         {profile ? (
           <ul className="onb-summary">{profileSummary(profile).map((l) => <li key={l}>{l}</li>)}</ul>
         ) : <p className="msg err">Falta alguna respuesta. Volvé atrás para completarla.</p>}
         <form action={action} className="onb-actions">
           <input type="hidden" name="answers" value={JSON.stringify(answers)} />
           <button type="button" className="btn ghost" onClick={() => setStep(total - 1)}>Atrás</button>
-          <button className="btn big" disabled={pending || !profile}>{pending ? "Guardando…" : "Entrar a Al Día"}</button>
+          <button className="btn big" disabled={pending || !profile}>{pending ? "Guardando…" : "Entrar a Aldia"}</button>
         </form>
         {state?.error && <p className="msg err">{state.error}</p>}
         <p className="small muted">Podés cambiar estas respuestas cuando quieras desde el menú.</p>

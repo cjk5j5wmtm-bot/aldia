@@ -7,7 +7,7 @@ import { describeRounding, formatMoney } from "@/lib/domain/money";
 import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { INDEX_LABEL } from "@/lib/domain/types";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
-import { M, PeriodPicker, propertyLabel, Stepper } from "@/lib/view";
+import { M, PeriodPicker, propertyLabel, Stages } from "@/lib/view";
 import { addExpenseAction, approveAdjustmentAction, closePeriodAction, confirmExpenseAction, discardExpenseAction, loadIndexAction, setLagAction } from "../../actions";
 import { ActionForm } from "../../ui";
 import { QuickAdd } from "../quick-add";
@@ -30,10 +30,19 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
   return (
     <>
       <div className="head">
-        <div><h1>Cierre del mes</h1><p>Un paso a la vez. Tocá un paso para verlo.</p></div>
+        <div><h1>Cierre del mes</h1><p>{st.closed ? `${formatPeriod(period)} está cerrado.` : `${st.steps.filter((s) => s.complete).length} de ${st.steps.length} etapas completas. Cada etapa se completa sola cuando sus pendientes están resueltos.`}</p></div>
         <div className="head-actions"><PeriodPicker period={period} base={`/cierre?paso=${paso}`} /><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
-      <Stepper steps={st.steps} period={period} current={paso} />
+      <Stages steps={st.steps} period={period} current={paso} />
+      {(() => {
+        const t = stepTasks(paso)[0];
+        return t && !close ? (
+          <div className="stage-next" style={{ marginBottom: 16 }}>
+            <span><span className="small muted">Siguiente: </span><b style={{ fontWeight: 500 }}>{t.title}</b></span>
+            <Link className="btn" href={t.href}>Resolver</Link>
+          </div>
+        ) : null;
+      })()}
       {paso === "preparar" && store.org.profile?.indices.includes("no_se") && (
         <p className="focus-note">Nos dijiste que no estás seguro de qué índice usan tus contratos. En cada aumento figura el índice cargado: comparalo con la cláusula del contrato antes de aprobar.</p>
       )}
@@ -52,7 +61,7 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
             const done = a.status === "aprobado" || a.status === "comunicado";
             return (
               <div key={c.id} className="calc" id={`aum-${c.id}`}>
-                <div className="row" style={{ justifyContent: "space-between" }}>
+                <div className="calc-head">
                   <b><Link href={`/contratos/${c.id}?periodo=${period}`}>{c.code}</Link> · {propertyLabel(store, c.propertyId)}</b>
                   <span className={`chip ${done ? "ok" : a.status === "calculado" ? "info" : "warn"}`}>{done ? "Aprobado" : a.status === "calculado" ? "Calculado, falta aprobar" : "Pendiente de datos"}</span>
                 </div>
@@ -100,7 +109,7 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
             const c = store.contracts.find((x) => x.id === e.contractId)!;
             return (
               <div key={e.id} className="calc">
-                <div className="row" style={{ justifyContent: "space-between" }}>
+                <div className="calc-head">
                   <b>{e.description}</b>
                   <span className={`chip ${e.status === "confirmado" ? "ok" : e.status === "pendiente" ? "warn" : "info"}`}>{e.status === "confirmado" ? "Confirmado" : e.status === "pendiente" ? "Pendiente de revisión" : "Descartado"}</span>
                 </div>
@@ -148,7 +157,14 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
             <header><h2>{step.title}</h2><span className={`chip ${step.complete ? "ok" : "warn"}`}>{step.complete ? "Completo" : "Pendiente"}</span></header>
             <div className="body">
               <p className="muted" style={{ margin: 0 }}>{step.summary}.</p>
-              {stepTasks(k).slice(0, 5).map((t) => <div key={t.id} className="small">• {t.title}: <span className="muted">{t.detail}</span></div>)}
+              {stepTasks(k).length === 0 && <p className="small muted">No hay nada pendiente en esta etapa.</p>}
+              {stepTasks(k).length > 0 && (
+                <ul className="tasks" style={{ margin: "0 -20px", borderTop: "1px solid var(--line)" }}>
+                  {stepTasks(k).slice(0, 8).map((t) => (
+                    <li key={t.id}><span className={`sev ${t.severity}`} /><div className="t"><b>{t.title}</b><span>{t.detail}</span></div><Link className="btn ghost" href={t.href}>Resolver</Link></li>
+                  ))}
+                </ul>
+              )}
               <div><Link className="btn ghost" href={href}>{k === "liquidar" ? "Ir a liquidaciones" : k === "cobrar" ? "Ir a cobranzas" : "Ir a los pagos"}</Link></div>
             </div>
           </section>

@@ -6,7 +6,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Al Día",
+  title: "Aldia",
   description: "El cierre de mes de tu cartera de alquileres, en una tarde.",
 };
 
