@@ -7,7 +7,8 @@ import { unallocated } from "@/lib/domain/payments";
 import { METHOD_LABEL } from "@/lib/domain/types";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { ChargeChip, M, PeriodPicker, personName, propertyLabel } from "@/lib/view";
-import { allocateAction, clearChargesAction, confirmPaymentAction, restoreChargesAction, reverseAllocationAction, voidPaymentAction } from "../../actions";
+import { isHidden, paymentKey } from "@/lib/domain/hidden";
+import { allocateAction, clearChargesAction, hideItemAction, showItemAction, confirmPaymentAction, restoreChargesAction, reverseAllocationAction, voidPaymentAction } from "../../actions";
 import { ActionForm, CopyText } from "../../ui";
 import { QuickAdd } from "../quick-add";
 
@@ -29,6 +30,8 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
   const charges = filter === "quitados" ? hidden : visible.filter((c) => filter === "todos" || (filter === "deben" ? c.balance.cents > 0 : c.status === "pagado"));
   const open = all.filter((c) => c.balance.cents > 0);
   const payments = [...store.payments].sort((a, b) => (a.status === b.status ? b.effectiveDate.localeCompare(a.effectiveDate) : a.status === "informado" ? -1 : 1));
+  const shownPayments = payments.filter((p) => !isHidden(store, paymentKey(p.id)));
+  const hiddenPayments = payments.filter((p) => isHidden(store, paymentKey(p.id)));
   const chargeLabel = (key: string) => {
     const [cid, p] = key.split(":");
     const c = store.contracts.find((x) => x.id === cid);
@@ -105,7 +108,8 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
         <header><h2>Pagos</h2><span className="small muted">Los informados no cuentan como cobrados hasta que los confirmes.</span></header>
         <div className="body">
           {payments.length === 0 && <p className="muted">Todavía no hay pagos registrados.</p>}
-          {payments.map((p) => {
+          {payments.length > 0 && shownPayments.length === 0 && <p className="muted">Sacaste todos los pagos de la lista. Están abajo, en "Quitados".</p>}
+          {shownPayments.map((p) => {
             const left = unallocated(p);
             const candidates = open.filter((c) => c.contract.currency === p.amount.currency);
             const match = candidates.find((c) => c.balance.cents === left.cents);
@@ -113,7 +117,12 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
               <div key={p.id} className="calc">
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <b><M m={p.amount} /> · {METHOD_LABEL[p.method]} · {formatDate(p.effectiveDate)}</b>
-                  <span className={`chip ${p.status === "confirmado" ? "ok" : p.status === "informado" ? "warn" : "info"}`}>{p.status === "confirmado" ? "Verificado" : p.status === "informado" ? "Informado, sin verificar" : "Anulado"}</span>
+                  <div className="row-actions">
+                    <span className={`chip ${p.status === "confirmado" ? "ok" : p.status === "informado" ? "warn" : "info"}`}>{p.status === "confirmado" ? "Verificado" : p.status === "informado" ? "Informado, sin verificar" : "Anulado"}</span>
+                    {(p.status === "anulado" || (p.status === "confirmado" && left.cents === 0)) && (
+                      <ActionForm action={hideItemAction} submit="✕ Quitar de la lista" variant="ghost"><input type="hidden" name="key" value={paymentKey(p.id)} /></ActionForm>
+                    )}
+                  </div>
                 </div>
                 <div className="muted">{p.reference ? `Ref. ${p.reference} · ` : ""}{p.payerNote ? `${p.payerNote} · ` : ""}cargado por {p.recordedBy}</div>
                 {p.allocations.map((a) => (
@@ -157,6 +166,19 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
               </div>
             );
           })}
+          {hiddenPayments.length > 0 && (
+            <details>
+              <summary>Quitados ({hiddenPayments.length})</summary>
+              <div className="hidden-list">
+                {hiddenPayments.map((p) => (
+                  <div key={p.id} className="calc row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <span><M m={p.amount} /> · {METHOD_LABEL[p.method]} · {formatDate(p.effectiveDate)}{p.status === "anulado" ? " · anulado" : ""}</span>
+                    <ActionForm action={showItemAction} submit="Volver a mostrar" variant="ghost"><input type="hidden" name="key" value={paymentKey(p.id)} /></ActionForm>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </section>}
     </>

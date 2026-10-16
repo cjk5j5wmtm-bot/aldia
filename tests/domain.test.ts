@@ -315,3 +315,25 @@ describe("quitar alquileres pagados de la lista", () => {
     expect(s.clearedCharges).not.toContain(paid[0].key);
   });
 });
+
+import { hideItem, isHidden, paymentKey, settlementKey, showItem, taskKey } from "../src/lib/domain/hidden";
+
+describe("quitar de la lista en otras secciones", () => {
+  it("pendientes se pueden ocultar y volver a mostrar", () => {
+    const s = demoStore("org_t", "Test");
+    const k = taskKey(DEMO_PERIOD, "adj:c1");
+    hideItem(s, k, "yo");
+    expect(isHidden(s, k)).toBe(true);
+    showItem(s, k, "yo");
+    expect(isHidden(s, k)).toBe(false);
+  });
+
+  it("pagos con algo pendiente y liquidaciones sin transferencia no se pueden quitar", () => {
+    const s = demoStore("org_t", "Test");
+    const informed = s.payments.find((p) => p.status === "informado")!;
+    expect(() => hideItem(s, paymentKey(informed.id), "yo")).toThrow(/pendiente/);
+    s.settlements.push({ id: "liq_x", status: "aprobada" } as never);
+    expect(() => hideItem(s, settlementKey("liq_x"), "yo")).toThrow(/transferencia/);
+    expect(() => hideItem(s, "contrato:c1", "yo")).toThrow();
+  });
+});

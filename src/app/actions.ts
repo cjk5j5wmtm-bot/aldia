@@ -12,6 +12,7 @@ import type { Store } from "@/lib/domain/types";
 import { sampleStore, saveStore, session, today } from "@/lib/server/store";
 import { chargesFor as _chargesFor } from "@/lib/domain/charges";
 import { clearCharges, restoreCharges } from "@/lib/domain/cleared";
+import { hideItem, showItem } from "@/lib/domain/hidden";
 
 export interface ActionResult {
   ok: boolean;
@@ -181,4 +182,12 @@ export async function restoreChargesAction(_: ActionResult | null, f: FormData) 
     restoreCharges(s, key ? [key] : [...(s.clearedCharges ?? [])].filter((k) => k.endsWith(`:${str(f, "period")}`)), ACTOR);
     return "Volvió a la lista.";
   });
+}
+
+export async function hideItemAction(_: ActionResult | null, f: FormData) {
+  return run((s, ACTOR) => (hideItem(s, str(f, "key"), ACTOR), "Lo sacamos de la lista. No se borró nada."));
+}
+
+export async function showItemAction(_: ActionResult | null, f: FormData) {
+  return run((s, ACTOR) => (showItem(s, str(f, "key"), ACTOR), "Volvió a la lista."));
 }

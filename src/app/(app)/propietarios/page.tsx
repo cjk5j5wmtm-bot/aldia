@@ -3,7 +3,8 @@ import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { computeSettlement, findSettlement, ownersWithContracts, settlementLabel } from "@/lib/domain/settlements";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, personName } from "@/lib/view";
-import { approveSettlementAction, informSettlementAction, transferAction } from "../../actions";
+import { isHidden, settlementKey } from "@/lib/domain/hidden";
+import { approveSettlementAction, hideItemAction, informSettlementAction, showItemAction, transferAction } from "../../actions";
 import { ActionForm, CopyText } from "../../ui";
 import { QuickAdd } from "../quick-add";
 
@@ -12,7 +13,13 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
   const { store } = await requireApp();
   const period = periodFrom(store, sp);
   const hoy = today(store);
-  const list = ownersWithContracts(store, period);
+  const all = ownersWithContracts(store, period);
+  const hiddenRec = (o: { ownerId: string; currency: string }) => {
+    const r = findSettlement(store, o.ownerId, period, o.currency as never);
+    return r && isHidden(store, settlementKey(r.id)) ? r : undefined;
+  };
+  const list = all.filter((o) => !hiddenRec(o));
+  const hidden = all.filter((o) => hiddenRec(o));
 
   return (
     <>
@@ -20,7 +27,8 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
         <div><h1>Propietarios</h1><p>Cuánto le toca a cada dueño en {formatPeriod(period)}.</p></div>
         <div className="head-actions"><PeriodPicker period={period} base="/propietarios" /><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
-      {list.length === 0 && <p className="muted">No hay propietarios con contratos activos en este período.</p>}
+      {all.length === 0 && <p className="muted">No hay propietarios con contratos activos en este período.</p>}
+      {all.length > 0 && list.length === 0 && <p className="muted">Ya sacaste todas las liquidaciones de este mes de la lista. Están abajo, en "Quitadas".</p>}
       {list.map(({ ownerId, currency }) => {
         const rec = findSettlement(store, ownerId, period, currency);
         const s = rec ? rec.snapshot : computeSettlement(store, ownerId, period, currency, hoy);
@@ -88,10 +96,29 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
                 </details>
               )}
               {rec?.externalTransfer && <p style={{ margin: 0 }}>Transferencia registrada: {formatDate(rec.externalTransfer.date)}, operación {rec.externalTransfer.reference}.</p>}
+              {rec?.status === "pago_registrado" && (
+                <ActionForm action={hideItemAction} submit="✕ Quitar de la lista" variant="ghost"><input type="hidden" name="key" value={settlementKey(rec.id)} /></ActionForm>
+              )}
             </div>
           </section>
         );
       })}
+      {hidden.length > 0 && (
+        <details className="section more">
+          <summary>Quitadas ({hidden.length})</summary>
+          <div className="body hidden-list">
+            {hidden.map((o) => {
+              const r = hiddenRec(o)!;
+              return (
+                <div key={r.id} className="calc row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{personName(store, o.ownerId)} · {o.currency} · <M m={r.snapshot.net} /> · transferencia registrada</span>
+                  <ActionForm action={showItemAction} submit="Volver a mostrar" variant="ghost"><input type="hidden" name="key" value={settlementKey(r.id)} /></ActionForm>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
     </>
   );
 }

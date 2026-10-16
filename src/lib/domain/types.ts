@@ -282,5 +282,7 @@ export interface Store {
   audit: AuditEvent[];
   /** Alquileres ya pagados que el usuario sacó de la lista de Cobranzas (claves de cobro). Solo afecta la vista. */
   clearedCharges?: string[];
+  /** Otros elementos que el usuario sacó de la vista: "tarea:<período>:<id>", "pago:<id>", "liq:<id>". Solo afecta la vista. */
+  hiddenItems?: string[];
   seq: number;
 }
