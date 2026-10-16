@@ -280,5 +280,7 @@ export interface Store {
   settlements: SettlementRecord[];
   closes: PeriodClose[];
   audit: AuditEvent[];
+  /** Alquileres ya pagados que el usuario sacó de la lista de Cobranzas (claves de cobro). Solo afecta la vista. */
+  clearedCharges?: string[];
   seq: number;
 }

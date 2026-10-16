@@ -7,7 +7,7 @@ import { unallocated } from "@/lib/domain/payments";
 import { METHOD_LABEL } from "@/lib/domain/types";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { ChargeChip, M, PeriodPicker, personName, propertyLabel } from "@/lib/view";
-import { allocateAction, confirmPaymentAction, reverseAllocationAction, voidPaymentAction } from "../../actions";
+import { allocateAction, clearChargesAction, confirmPaymentAction, restoreChargesAction, reverseAllocationAction, voidPaymentAction } from "../../actions";
 import { ActionForm, CopyText } from "../../ui";
 import { QuickAdd } from "../quick-add";
 
@@ -22,7 +22,11 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
   const ver = sp.ver === "pagos" ? "pagos" : "alquileres";
   const pendingPayments = store.payments.filter((p) => p.status === "informado" || (p.status !== "anulado" && unallocated(p).cents > 0)).length;
   const all = chargesFor(store, period, hoy);
-  const charges = all.filter((c) => filter === "todos" || (filter === "deben" ? c.balance.cents > 0 : c.status === "pagado"));
+  const cleared = new Set(store.clearedCharges ?? []);
+  const visible = all.filter((c) => !cleared.has(c.key));
+  const hidden = all.filter((c) => cleared.has(c.key));
+  const paidVisible = visible.filter((c) => c.status === "pagado").length;
+  const charges = filter === "quitados" ? hidden : visible.filter((c) => filter === "todos" || (filter === "deben" ? c.balance.cents > 0 : c.status === "pagado"));
   const open = all.filter((c) => c.balance.cents > 0);
   const payments = [...store.payments].sort((a, b) => (a.status === b.status ? b.effectiveDate.localeCompare(a.effectiveDate) : a.status === "informado" ? -1 : 1));
   const chargeLabel = (key: string) => {
@@ -48,15 +52,20 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
       {ver === "alquileres" && <section className="section">
         <header>
           <div className="period">
-            {[["todos", "Todos"], ["deben", "Deben"], ["pagados", "Pagados"]].map(([k, l]) => (
+            {[["todos", "Todos"], ["deben", "Deben"], ["pagados", "Pagados"], ...(hidden.length ? [["quitados", `Quitados (${hidden.length})`]] : [])].map(([k, l]) => (
               k === filter ? <span key={k}>{l}</span> : <Link key={k} href={`/cobranzas?periodo=${period}&estado=${k}`}>{l}</Link>
             ))}
           </div>
+          {filter !== "quitados" && paidVisible > 0 && (
+            <ActionForm action={clearChargesAction} submit={`Quitar los pagados (${paidVisible})`} variant="ghost" confirm={`¿Sacar de la lista los ${paidVisible} alquileres pagados? Los pagos siguen registrados y podés volver a verlos en "Quitados".`}>
+              <input type="hidden" name="period" value={period} />
+            </ActionForm>
+          )}
         </header>
         <div className="body flush tbl">
-          {charges.length === 0 ? <p className="empty">No hay alquileres en este filtro.</p> : (
+          {charges.length === 0 ? <p className="empty">{filter === "pagados" && hidden.length ? "Los pagados de este mes ya los sacaste de la lista. Están en \"Quitados\"." : "No hay alquileres en este filtro."}</p> : (
             <table>
-              <thead><tr><th>Inquilino</th><th className="r">Debe</th><th>Estado</th><th>Recordatorio</th></tr></thead>
+              <thead><tr><th>Inquilino</th><th className="r">Debe</th><th>Estado</th><th>Acciones</th></tr></thead>
               <tbody>
                 {charges.map((ch) => {
                   const draft = reminderDraft(store, ch);
@@ -73,7 +82,15 @@ export default async function Cobranzas({ searchParams }: { searchParams: Promis
                             <CopyText text={draft.text} />
                             <p className="small muted">El envío automático por WhatsApp no está configurado. Copiá el texto y mandalo desde tu teléfono{draft.phone ? ` al ${draft.phone}` : ""}.</p>
                           </details>
-                        ) : <span className="small muted">—</span>}
+                        ) : cleared.has(ch.key) ? (
+                          <ActionForm action={restoreChargesAction} submit="Volver a mostrar" variant="ghost">
+                            <input type="hidden" name="key" value={ch.key} />
+                          </ActionForm>
+                        ) : (
+                          <ActionForm action={clearChargesAction} submit="✕ Quitar de la lista" variant="ghost">
+                            <input type="hidden" name="key" value={ch.key} /><input type="hidden" name="period" value={period} />
+                          </ActionForm>
+                        )}
                       </td>
                     </tr>
                   );

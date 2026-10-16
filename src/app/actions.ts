@@ -10,6 +10,8 @@ import { audit } from "@/lib/domain/store-ops";
 import type { Expense, IndexName, PaymentMethod } from "@/lib/domain/types";
 import type { Store } from "@/lib/domain/types";
 import { sampleStore, saveStore, session, today } from "@/lib/server/store";
+import { chargesFor as _chargesFor } from "@/lib/domain/charges";
+import { clearCharges, restoreCharges } from "@/lib/domain/cleared";
 
 export interface ActionResult {
   ok: boolean;
@@ -159,4 +161,24 @@ export async function resetDemoAction() {
   if (!ctx) return;
   await saveStore(sampleStore(ctx.store.org.id, ctx.store.org.name, ctx.store));
   revalidatePath("/", "layout");
+}
+
+/** Saca de la lista de Cobranzas un alquiler pagado ("key"), o todos los pagados del período si no viene "key". */
+export async function clearChargesAction(_: ActionResult | null, f: FormData) {
+  return run((s, ACTOR, hoy) => {
+    const key = str(f, "key");
+    const paid = _chargesFor(s, str(f, "period"), hoy).filter((c) => (key ? c.key === key : c.status === "pagado" && !s.clearedCharges?.includes(c.key)));
+    if (key && paid.length === 0) throw new Error("No encontramos ese alquiler.");
+    if (paid.length === 0) return "No había alquileres pagados para quitar.";
+    clearCharges(s, paid, ACTOR);
+    return paid.length === 1 ? "Lo sacamos de la lista. El pago sigue registrado." : `Sacamos ${paid.length} alquileres pagados de la lista. Los pagos siguen registrados.`;
+  });
+}
+
+export async function restoreChargesAction(_: ActionResult | null, f: FormData) {
+  return run((s, ACTOR) => {
+    const key = str(f, "key");
+    restoreCharges(s, key ? [key] : [...(s.clearedCharges ?? [])].filter((k) => k.endsWith(`:${str(f, "period")}`)), ACTOR);
+    return "Volvió a la lista.";
+  });
 }

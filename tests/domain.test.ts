@@ -295,3 +295,23 @@ describe("preguntas de bienvenida", () => {
     expect(indexMismatches({ ...p, indices: ["no_se"] }, [c("ICL")]).length).toBe(0);
   });
 });
+
+import { clearCharges, restoreCharges } from "../src/lib/domain/cleared";
+import { chargesFor } from "../src/lib/domain/charges";
+
+describe("quitar alquileres pagados de la lista", () => {
+  it("solo deja quitar los pagados, sin tocar pagos, y se puede deshacer", () => {
+    const s = demoStore("org_t", "Test");
+    const all = chargesFor(s, DEMO_PERIOD, DEMO_TODAY);
+    const paid = all.filter((c) => c.status === "pagado");
+    const unpaid = all.find((c) => c.status !== "pagado")!;
+    const payments = JSON.stringify(s.payments);
+    expect(() => clearCharges(s, [unpaid], "yo")).toThrow(/todavía no está pagado/);
+    clearCharges(s, paid, "yo");
+    expect(s.clearedCharges).toEqual(paid.map((c) => c.key));
+    expect(JSON.stringify(s.payments)).toBe(payments);
+    expect(chargesFor(s, DEMO_PERIOD, DEMO_TODAY).length).toBe(all.length);
+    restoreCharges(s, [paid[0].key], "yo");
+    expect(s.clearedCharges).not.toContain(paid[0].key);
+  });
+});
