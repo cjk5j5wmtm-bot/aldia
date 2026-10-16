@@ -6,6 +6,9 @@ import { addMonths, formatDate, formatPeriod } from "@/lib/domain/period";
 import { INDEX_LABEL } from "@/lib/domain/types";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, personName, propertyLabel } from "@/lib/view";
+import { contractKey, isHidden } from "@/lib/domain/hidden";
+import { hideItemAction, showItemAction } from "../../actions";
+import { IconAction } from "../../ui";
 
 const PAGE = 25;
 
@@ -16,8 +19,9 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
   const hoy = today(store);
   const q = typeof sp.q === "string" ? sp.q.trim().toLowerCase() : "";
   const page = Math.max(1, Number(sp.pagina) || 1);
+  const hiddenContracts = store.contracts.filter((c) => c.status !== "archivado" && isHidden(store, contractKey(c.id)));
   const rows = store.contracts
-    .filter((c) => c.status !== "archivado")
+    .filter((c) => c.status !== "archivado" && !isHidden(store, contractKey(c.id)))
     .filter((c) => {
       if (!q) return true;
       const hay = [c.code, propertyLabel(store, c.propertyId), ...c.tenantIds.map((t) => personName(store, t)), ...c.owners.map((o) => personName(store, o.ownerId))].join(" ").toLowerCase();
@@ -44,7 +48,7 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
         <div className="body flush tbl">
           {shown.length === 0 ? <p className="empty">No encontré contratos con esa búsqueda.</p> : (
             <table className="cards">
-              <thead><tr><th>Contrato</th><th>Inquilino</th><th>Propietarios</th><th className="r">Alquiler vigente</th><th>Próximo aumento</th><th>Datos</th></tr></thead>
+              <thead><tr><th>Contrato</th><th>Inquilino</th><th>Propietarios</th><th className="r">Alquiler vigente</th><th>Próximo aumento</th><th>Datos</th><th><span className="sr">Acciones</span></th></tr></thead>
               <tbody>
                 {shown.map((c) => {
                   const nextAdj = adjustmentPeriods(c, addMonths(period, 24)).find((p) => p >= period);
@@ -57,6 +61,8 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
                       <td className="r"><M m={rentInForce(c, period, store.adjustments)} /><div className="small muted">vence el día {c.dueDay}</div></td>
                       <td>{c.adjustment ? (nextAdj ? `${formatPeriod(nextAdj)} · ${INDEX_LABEL[c.adjustment.index]}` : "Sin más aumentos") : "Sin cláusula"}<div className="small muted">hasta {formatDate(c.endDate)}</div></td>
                       <td>{missing.length ? <span className="chip warn">{missing[0]}</span> : <span className="chip ok">Completos</span>}</td>
+                      <td className="act"><IconAction action={hideItemAction} fields={{ key: contractKey(c.id) }} label="Quitar de la lista"
+                        confirm={`¿Quitar ${c.code} de la lista de contratos? No se borra el contrato: sus alquileres siguen apareciendo en Cobranzas y lo podés volver a mostrar.`} /></td>
                     </tr>
                   );
                 })}
@@ -71,6 +77,19 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
           <span className="muted small">Página {page} de {pages}</span>
           {page < pages && <Link className="btn ghost" href={`?periodo=${period}&q=${q}&pagina=${page + 1}`}>Siguiente</Link>}
         </div>
+      )}
+      {hiddenContracts.length > 0 && (
+        <details className="section more">
+          <summary>Quitados ({hiddenContracts.length})</summary>
+          <div className="body hidden-list">
+            {hiddenContracts.map((c) => (
+              <div key={c.id} className="calc row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                <span><b>{c.code}</b> · {propertyLabel(store, c.propertyId)}</span>
+                <IconAction action={showItemAction} fields={{ key: contractKey(c.id) }} label="Volver a mostrar" kind="restore" />
+              </div>
+            ))}
+          </div>
+        </details>
       )}
       <p className="small muted">La carga y edición de contratos llega en la próxima versión. En la demo los contratos vienen precargados.</p>
     </>

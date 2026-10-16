@@ -185,7 +185,8 @@ export async function restoreChargesAction(_: ActionResult | null, f: FormData) 
 }
 
 export async function hideItemAction(_: ActionResult | null, f: FormData) {
-  return run((s, ACTOR) => (hideItem(s, str(f, "key"), ACTOR), "Lo sacamos de la lista. No se borró nada."));
+  const key = str(f, "key");
+  return run((s, ACTOR) => (hideItem(s, key, ACTOR), key.startsWith("pago:") || key.startsWith("gasto:") ? "Borrado." : "Lo sacamos de la lista."));
 }
 
 export async function showItemAction(_: ActionResult | null, f: FormData) {

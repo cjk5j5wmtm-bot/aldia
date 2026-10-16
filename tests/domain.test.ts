@@ -315,7 +315,7 @@ describe("borrar alquileres de la lista de cobranzas", () => {
   });
 });
 
-import { hideItem, isHidden, paymentKey, settlementKey, showItem, taskKey } from "../src/lib/domain/hidden";
+import { contractKey, expenseKey, hideItem, isHidden, ownerKey, paymentKey, showItem, taskKey } from "../src/lib/domain/hidden";
 
 describe("quitar de la lista en otras secciones", () => {
   it("pendientes se pueden ocultar y volver a mostrar", () => {
@@ -340,13 +340,34 @@ describe("quitar de la lista en otras secciones", () => {
     expect(s.audit.some((e) => e.action === "borró un pago")).toBe(true);
   });
 
-  it("no deja borrar un pago que ya entró en una liquidación aprobada, ni quitar liquidaciones sin transferencia", () => {
+  it("no deja borrar un pago que ya entró en una liquidación aprobada", () => {
     const s = demoStore("org_t", "Test");
     const p = s.payments.find((x) => x.status === "confirmado" && x.allocations.some((a) => !a.reversed))!;
     const [contractId, period] = p.allocations[0].chargeKey.split(":");
     s.settlements.push({ id: "liq_x", period, status: "aprobada", snapshot: { lines: [{ contractId }] } } as never);
     expect(() => hideItem(s, paymentKey(p.id), "yo")).toThrow(/liquidación aprobada/);
-    expect(() => hideItem(s, settlementKey("liq_x"), "yo")).toThrow(/transferencia/);
-    expect(() => hideItem(s, "contrato:c1", "yo")).toThrow();
+    expect(() => hideItem(s, "otra:cosa", "yo")).toThrow();
+  });
+
+  it("propietarios y contratos se quitan de la vista sin cambiar saldos", () => {
+    const s = demoStore("org_t", "Test");
+    const before = JSON.stringify(chargesFor(s, DEMO_PERIOD, DEMO_TODAY));
+    const c = s.contracts[0];
+    hideItem(s, contractKey(c.id), "yo");
+    hideItem(s, ownerKey(DEMO_PERIOD, c.owners[0].ownerId, c.currency), "yo");
+    expect(isHidden(s, contractKey(c.id))).toBe(true);
+    expect(JSON.stringify(chargesFor(s, DEMO_PERIOD, DEMO_TODAY))).toBe(before);
+    expect(() => hideItem(s, contractKey("no_existe"), "yo")).toThrow();
+  });
+
+  it("borrar un gasto lo descarta, salvo que ya esté en una liquidación aprobada", () => {
+    const s = demoStore("org_t", "Test");
+    const e = s.expenses.find((x) => x.status !== "descartado")!;
+    const s2 = demoStore("org_t", "Test");
+    hideItem(s, expenseKey(e.id), "yo");
+    expect(s.expenses.find((x) => x.id === e.id)!.status).toBe("descartado");
+    expect(isHidden(s, expenseKey(e.id))).toBe(true);
+    s2.settlements.push({ id: "liq_y", period: e.period, status: "aprobada", snapshot: { lines: [{ contractId: e.contractId, expenses: [{ id: e.id }] }] } } as never);
+    expect(() => hideItem(s2, expenseKey(e.id), "yo")).toThrow(/liquidación aprobada/);
   });
 });

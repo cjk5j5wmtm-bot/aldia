@@ -8,8 +8,9 @@ import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { INDEX_LABEL } from "@/lib/domain/types";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, propertyLabel, Stages } from "@/lib/view";
-import { addExpenseAction, approveAdjustmentAction, closePeriodAction, confirmExpenseAction, discardExpenseAction, loadIndexAction, setLagAction } from "../../actions";
-import { ActionForm } from "../../ui";
+import { hideItemAction, showItemAction, addExpenseAction, approveAdjustmentAction, closePeriodAction, confirmExpenseAction, discardExpenseAction, loadIndexAction, setLagAction } from "../../actions";
+import { ActionForm, IconAction } from "../../ui";
+import { expenseKey, isHidden, taskKey } from "@/lib/domain/hidden";
 import { QuickAdd } from "../quick-add";
 
 export default async function Cierre({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -23,8 +24,10 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
   const close = store.closes.find((c) => c.period === period);
   const active = store.contracts.filter((c) => contractCoversPeriod(c, period));
   const due = active.filter((c) => adjustmentPeriods(c, period).includes(period));
-  const expenses = store.expenses.filter((e) => e.period === period);
-  const stepTasks = (k: string) => st.tasks.filter((t) => t.step === k);
+  const expenses = store.expenses.filter((e) => e.period === period && !isHidden(store, expenseKey(e.id)));
+  const deletedExpenses = store.expenses.filter((e) => e.period === period && isHidden(store, expenseKey(e.id)));
+  const stepTasks = (k: string) => st.tasks.filter((t) => t.step === k && !isHidden(store, taskKey(period, t.id)));
+  const hiddenTasks = (k: string) => st.tasks.filter((t) => t.step === k && isHidden(store, taskKey(period, t.id)));
 
   const mismatches = indexMismatches(store.org.profile, due);
   return (
@@ -111,7 +114,11 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
               <div key={e.id} className="calc">
                 <div className="calc-head">
                   <b>{e.description}</b>
-                  <span className={`chip ${e.status === "confirmado" ? "ok" : e.status === "pendiente" ? "warn" : "info"}`}>{e.status === "confirmado" ? "Confirmado" : e.status === "pendiente" ? "Pendiente de revisión" : "Descartado"}</span>
+                  <div className="row-actions">
+                    <span className={`chip ${e.status === "confirmado" ? "ok" : e.status === "pendiente" ? "warn" : "info"}`}>{e.status === "confirmado" ? "Confirmado" : e.status === "pendiente" ? "Pendiente de revisión" : "Descartado"}</span>
+                    {!close && <IconAction action={hideItemAction} fields={{ key: expenseKey(e.id) }} label="Borrar gasto"
+                      confirm={e.status === "descartado" ? "¿Sacar este gasto descartado de la lista?" : `¿Borrar "${e.description}"? No se le va a descontar al propietario y queda en el historial.`} />}
+                  </div>
                 </div>
                 <div>{c.code} · <M m={e.amount} /> · a cargo del {e.bornBy} · {formatDate(e.date)}{e.provider ? ` · ${e.provider}` : ""}</div>
                 {e.status === "pendiente" && (
@@ -129,6 +136,14 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
               </div>
             );
           })}
+          {deletedExpenses.length > 0 && (
+            <details className="more">
+              <summary>Borrados ({deletedExpenses.length})</summary>
+              <div className="hidden-list">
+                {deletedExpenses.map((e) => <div key={e.id} className="small muted">{e.description} · <M m={e.amount} /></div>)}
+              </div>
+            </details>
+          )}
           <details>
             <summary>Cargar un gasto</summary>
             <ActionForm action={addExpenseAction} submit="Cargar gasto" className="stack">
@@ -161,9 +176,23 @@ export default async function Cierre({ searchParams }: { searchParams: Promise<R
               {stepTasks(k).length > 0 && (
                 <ul className="tasks" style={{ margin: "0 -20px", borderTop: "1px solid var(--line)" }}>
                   {stepTasks(k).slice(0, 8).map((t) => (
-                    <li key={t.id}><span className={`sev ${t.severity}`} /><div className="t"><b>{t.title}</b><span>{t.detail}</span></div><Link className="btn ghost" href={t.href}>Resolver</Link></li>
+                    <li key={t.id}><span className={`sev ${t.severity}`} /><div className="t"><b>{t.title}</b><span>{t.detail}</span></div>
+                      <div className="row-actions"><Link className="btn ghost" href={t.href}>Resolver</Link>
+                        <IconAction action={hideItemAction} fields={{ key: taskKey(period, t.id) }} label="Quitar de pendientes"
+                          confirm="¿Quitarlo de tus pendientes? No se resuelve: el cierre del mes lo sigue contando." /></div></li>
                   ))}
                 </ul>
+              )}
+              {hiddenTasks(k).length > 0 && (
+                <details className="more">
+                  <summary>Quitados ({hiddenTasks(k).length})</summary>
+                  <ul className="tasks">
+                    {hiddenTasks(k).map((t) => (
+                      <li key={t.id}><span className="sev off" /><div className="t"><b>{t.title}</b><span>{t.detail}</span></div>
+                        <IconAction action={showItemAction} fields={{ key: taskKey(period, t.id) }} label="Volver a mostrar" kind="restore" /></li>
+                    ))}
+                  </ul>
+                </details>
               )}
               <div><Link className="btn ghost" href={href}>{k === "liquidar" ? "Ir a liquidaciones" : k === "cobrar" ? "Ir a cobranzas" : "Ir a los pagos"}</Link></div>
             </div>

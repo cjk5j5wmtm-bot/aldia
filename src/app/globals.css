@@ -307,6 +307,7 @@ details.section > summary { padding: 14px 20px; }
   .cards td.act { grid-column: 1 / -1; width: auto; text-align: left; white-space: normal; }
   .cards td.act .row-actions { justify-content: space-between; }
   .cards td.act .icon-form { margin-left: auto; }
+  .cards td.act > .icon-form { display: flex; justify-content: flex-end; }
   .cards tr:last-child { border-bottom: 0; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

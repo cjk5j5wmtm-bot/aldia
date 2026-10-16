@@ -3,7 +3,7 @@ import { formatDate, formatPeriod } from "@/lib/domain/period";
 import { computeSettlement, findSettlement, ownersWithContracts, settlementLabel } from "@/lib/domain/settlements";
 import { periodFrom, requireApp, today } from "@/lib/server/store";
 import { M, PeriodPicker, personName } from "@/lib/view";
-import { isHidden, settlementKey } from "@/lib/domain/hidden";
+import { isHidden, ownerKey, settlementKey } from "@/lib/domain/hidden";
 import { approveSettlementAction, hideItemAction, informSettlementAction, showItemAction, transferAction } from "../../actions";
 import { ActionForm, CopyText, IconAction } from "../../ui";
 import { QuickAdd } from "../quick-add";
@@ -14,12 +14,15 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
   const period = periodFrom(store, sp);
   const hoy = today(store);
   const all = ownersWithContracts(store, period);
-  const hiddenRec = (o: { ownerId: string; currency: string }) => {
+  // Clave con la que se ocultó (la vieja de liquidación o la de propietario del mes), para poder volver a mostrarlo.
+  const hiddenKey = (o: { ownerId: string; currency: string }) => {
     const r = findSettlement(store, o.ownerId, period, o.currency as never);
-    return r && isHidden(store, settlementKey(r.id)) ? r : undefined;
+    if (r && isHidden(store, settlementKey(r.id))) return settlementKey(r.id);
+    const k = ownerKey(period, o.ownerId, o.currency);
+    return isHidden(store, k) ? k : undefined;
   };
-  const list = all.filter((o) => !hiddenRec(o));
-  const hidden = all.filter((o) => hiddenRec(o));
+  const list = all.filter((o) => !hiddenKey(o));
+  const hidden = all.filter((o) => hiddenKey(o));
 
   return (
     <>
@@ -28,7 +31,7 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
         <div className="head-actions"><PeriodPicker period={period} base="/propietarios" /><QuickAdd store={store} period={period} hoy={hoy} /></div>
       </div>
       {all.length === 0 && <p className="muted">No hay propietarios con contratos activos en este período.</p>}
-      {all.length > 0 && list.length === 0 && <p className="muted">Ya sacaste todas las liquidaciones de este mes de la lista. Están abajo, en "Quitadas".</p>}
+      {all.length > 0 && list.length === 0 && <p className="muted">Sacaste a todos los propietarios de la lista de este mes. Están abajo, en "Quitados".</p>}
       {list.map(({ ownerId, currency }) => {
         const rec = findSettlement(store, ownerId, period, currency);
         const s = rec ? rec.snapshot : computeSettlement(store, ownerId, period, currency, hoy);
@@ -39,7 +42,10 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
               <h2>{personName(store, ownerId)} · {currency}</h2>
               <div className="row-actions">
                 <span className={`chip ${rec ? "ok" : s.blockers.length ? "warn" : "info"}`}>{settlementLabel(rec)}{!rec && s.blockers.length ? ", con pendientes" : ""}</span>
-                {rec?.status === "pago_registrado" && <IconAction action={hideItemAction} fields={{ key: settlementKey(rec.id) }} label="Quitar de la lista" />}
+                <IconAction action={hideItemAction} fields={{ key: ownerKey(period, ownerId, currency) }} label="Quitar de la lista"
+                  confirm={rec?.status === "pago_registrado"
+                    ? `¿Quitar a ${personName(store, ownerId)} de la lista de ${formatPeriod(period)}? La liquidación queda guardada.`
+                    : `¿Quitar a ${personName(store, ownerId)} de la lista de ${formatPeriod(period)}? No se borra nada: el cierre del mes lo sigue contando hasta que registres la transferencia.`} />
               </div>
             </header>
             <div className="body">
@@ -112,14 +118,15 @@ export default async function Propietarios({ searchParams }: { searchParams: Pro
       })}
       {hidden.length > 0 && (
         <details className="section more">
-          <summary>Quitadas ({hidden.length})</summary>
+          <summary>Quitados ({hidden.length})</summary>
           <div className="body hidden-list">
             {hidden.map((o) => {
-              const r = hiddenRec(o)!;
+              const k = hiddenKey(o)!;
+              const r = findSettlement(store, o.ownerId, period, o.currency);
               return (
-                <div key={r.id} className="calc row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <span>{personName(store, o.ownerId)} · {o.currency} · <M m={r.snapshot.net} /> · transferencia registrada</span>
-                  <IconAction action={showItemAction} fields={{ key: settlementKey(r.id) }} label="Volver a mostrar" kind="restore" />
+                <div key={k} className="calc row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{personName(store, o.ownerId)} · {o.currency}{r ? <> · <M m={r.snapshot.net} /></> : null} · {settlementLabel(r).toLowerCase()}</span>
+                  <IconAction action={showItemAction} fields={{ key: k }} label="Volver a mostrar" kind="restore" />
                 </div>
               );
             })}
